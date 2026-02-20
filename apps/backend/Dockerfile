@@ -2,7 +2,7 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-# Install dependencies
+# Install dependencies (including devDependencies for building)
 COPY package*.json ./
 RUN npm ci
 
@@ -10,8 +10,10 @@ RUN npm ci
 COPY prisma ./prisma
 RUN npx prisma generate
 
-# Copy source code & build
+# Copy all source code
 COPY . .
+
+# Build the NestJS project (outputs to dist/)
 RUN npm run build
 
 # Create uploads directory for local dev fallback
@@ -19,5 +21,5 @@ RUN mkdir -p public/uploads
 
 EXPOSE 4000
 
-# Run migrations then start the server
+# Run migrations then start the compiled server
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
