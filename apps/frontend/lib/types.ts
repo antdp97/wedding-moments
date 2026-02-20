@@ -78,3 +78,12 @@ export interface AdminStatUpdate {
     totalPhotos: number;
     pendingCount: number;
 }
+
+export interface BackgroundImage {
+    id: string;
+    eventId: string;
+    url: string;
+    name?: string | null;
+    isActive: boolean;
+    createdAt: string;
+}

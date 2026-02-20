@@ -12,6 +12,7 @@ interface UseLiveWallOptions {
     eventSlug: string;
     onPhotoApproved?: (photo: Photo) => void;
     onPhotoRemoved?: (photoId: string) => void;
+    onBackgroundChanged?: (url: string | null) => void;
 }
 
 interface UseLiveWallReturn {
@@ -23,6 +24,7 @@ export function useLiveWall({
     eventSlug,
     onPhotoApproved,
     onPhotoRemoved,
+    onBackgroundChanged,
 }: UseLiveWallOptions): UseLiveWallReturn {
     const socketRef = useRef<Socket | null>(null);
     const [isConnected, setIsConnected] = useState(false);
@@ -31,6 +33,7 @@ export function useLiveWall({
     // Stable callback refs
     const onPhotoApprovedRef = useRef(onPhotoApproved);
     const onPhotoRemovedRef = useRef(onPhotoRemoved);
+    const onBackgroundChangedRef = useRef(onBackgroundChanged);
 
     useEffect(() => {
         onPhotoApprovedRef.current = onPhotoApproved;
@@ -39,6 +42,10 @@ export function useLiveWall({
     useEffect(() => {
         onPhotoRemovedRef.current = onPhotoRemoved;
     }, [onPhotoRemoved]);
+
+    useEffect(() => {
+        onBackgroundChangedRef.current = onBackgroundChanged;
+    }, [onBackgroundChanged]);
 
     useEffect(() => {
         if (!eventSlug) return;
@@ -84,6 +91,12 @@ export function useLiveWall({
         socket.on('photo_removed', ({ id }: { id: string }) => {
             console.log('[WebSocket] Photo removed:', id);
             onPhotoRemovedRef.current?.(id);
+        });
+
+        // Listen for background changes
+        socket.on('background_changed', ({ url }: { url: string | null }) => {
+            console.log('[WebSocket] Background changed:', url);
+            onBackgroundChangedRef.current?.(url);
         });
 
         // Cleanup on unmount

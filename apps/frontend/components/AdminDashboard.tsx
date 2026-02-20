@@ -5,10 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Check, X, Download, Shield, Settings, RefreshCw, Wifi, WifiOff, Trash2 } from 'lucide-react';
+import { Check, X, Download, Shield, Settings, RefreshCw, Wifi, WifiOff, Trash2, Upload, ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { Photo, PhotoStatus } from '@/lib/types';
-import { getAdminPhotos, getEventStats, updatePhotoStatus, deletePhoto } from '@/lib/api';
+import { Photo, PhotoStatus, BackgroundImage } from '@/lib/types';
+import {
+    getAdminPhotos, getEventStats, updatePhotoStatus, deletePhoto,
+    getPresignedUrl, uploadFile, createBackground, getBackgrounds,
+    activateBackground, deactivateAllBackgrounds, deleteBackgroundImage,
+} from '@/lib/api';
 import { useAdminSocket } from '@/hooks/useLiveWall';
 
 const EVENT_SLUG = 'demo-event';
@@ -19,6 +23,10 @@ export default function AdminDashboard() {
     const [photos, setPhotos] = useState<Photo[]>([]);
     const [stats, setStats] = useState({ totalPhotos: 0, pendingCount: 0, approvedCount: 0 });
     const [loading, setLoading] = useState(true);
+
+    // Background image state
+    const [backgrounds, setBackgrounds] = useState<BackgroundImage[]>([]);
+    const [bgUploading, setBgUploading] = useState(false);
 
     // WebSocket for real-time stats updates
     const handleStatUpdate = useCallback((newStats: { totalPhotos: number; pendingCount: number }) => {
@@ -51,13 +59,22 @@ export default function AdminDashboard() {
         }
     }
 
+    async function fetchBackgrounds() {
+        try {
+            const data = await getBackgrounds(EVENT_SLUG);
+            setBackgrounds(data);
+        } catch (error) {
+            console.error('Failed to fetch backgrounds:', error);
+        }
+    }
+
     // Load data on authentication
     useEffect(() => {
         if (!isAuthenticated) return;
 
         async function loadData() {
             setLoading(true);
-            await Promise.all([fetchPhotos(), fetchStats()]);
+            await Promise.all([fetchPhotos(), fetchStats(), fetchBackgrounds()]);
             setLoading(false);
         }
         loadData();
@@ -101,8 +118,66 @@ export default function AdminDashboard() {
         }
     };
 
+    // ─── Background handlers ───
+
+    const handleBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setBgUploading(true);
+        try {
+            const presigned = await getPresignedUrl(file.name, file.type);
+            const photoUrl = await uploadFile(presigned, file);
+            await createBackground(EVENT_SLUG, photoUrl, file.name);
+            toast.success('Background uploaded');
+            await fetchBackgrounds();
+        } catch (error) {
+            console.error('Failed to upload background:', error);
+            toast.error('Failed to upload background');
+        } finally {
+            setBgUploading(false);
+            e.target.value = ''; // reset file input
+        }
+    };
+
+    const handleActivateBg = async (id: string) => {
+        try {
+            await activateBackground(id);
+            setBackgrounds(prev =>
+                prev.map(bg => ({ ...bg, isActive: bg.id === id }))
+            );
+            toast.success('Background activated');
+        } catch (error) {
+            console.error('Failed to activate background:', error);
+            toast.error('Failed to activate background');
+        }
+    };
+
+    const handleDeactivateAll = async () => {
+        try {
+            await deactivateAllBackgrounds(EVENT_SLUG);
+            setBackgrounds(prev => prev.map(bg => ({ ...bg, isActive: false })));
+            toast.success('Reverted to default background');
+        } catch (error) {
+            console.error('Failed to deactivate backgrounds:', error);
+            toast.error('Failed to revert background');
+        }
+    };
+
+    const handleDeleteBg = async (id: string) => {
+        if (!confirm('Delete this background image?')) return;
+        try {
+            await deleteBackgroundImage(id);
+            setBackgrounds(prev => prev.filter(bg => bg.id !== id));
+            toast.success('Background deleted');
+        } catch (error) {
+            console.error('Failed to delete background:', error);
+            toast.error('Failed to delete background');
+        }
+    };
+
     const handleRefresh = async () => {
-        await Promise.all([fetchPhotos(), fetchStats()]);
+        await Promise.all([fetchPhotos(), fetchStats(), fetchBackgrounds()]);
         toast.success('Refreshed');
     };
 
@@ -257,6 +332,93 @@ export default function AdminDashboard() {
                         ))}
                     </div>
                 )}
+
+                {/* ─── Background Management Section ─── */}
+                <Card className="border-border/50">
+                    <CardHeader className="p-3 sm:p-6">
+                        <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                            <ImageIcon className="w-5 h-5" />
+                            Live Wall Background
+                        </CardTitle>
+                        <CardDescription className="text-xs sm:text-sm">
+                            Upload and manage background images for the live event screen
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-3 sm:p-6 pt-0 space-y-4">
+                        {/* Upload area */}
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <label className="flex-1 flex items-center justify-center gap-2 border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 rounded-xl p-4 cursor-pointer transition-colors">
+                                <Upload className="w-5 h-5 text-muted-foreground" />
+                                <span className="text-sm text-muted-foreground">
+                                    {bgUploading ? 'Uploading...' : 'Upload Background Image'}
+                                </span>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    disabled={bgUploading}
+                                    onChange={handleBgUpload}
+                                />
+                            </label>
+                            {backgrounds.some(b => b.isActive) && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="whitespace-nowrap"
+                                    onClick={handleDeactivateAll}
+                                >
+                                    Use Default
+                                </Button>
+                            )}
+                        </div>
+
+                        {/* Background grid */}
+                        {backgrounds.length > 0 && (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
+                                {backgrounds.map((bg) => (
+                                    <div
+                                        key={bg.id}
+                                        className={`group relative aspect-video rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${bg.isActive
+                                            ? 'border-green-500 shadow-lg shadow-green-500/20'
+                                            : 'border-transparent hover:border-primary/50'
+                                            }`}
+                                        onClick={() => handleActivateBg(bg.id)}
+                                    >
+                                        <img
+                                            src={bg.url}
+                                            alt={bg.name || 'Background'}
+                                            className="w-full h-full object-cover"
+                                        />
+                                        {bg.isActive && (
+                                            <div className="absolute top-1 left-1 bg-green-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                                                ACTIVE
+                                            </div>
+                                        )}
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                            <div className="flex gap-1">
+                                                {!bg.isActive && (
+                                                    <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700">
+                                                        Activate
+                                                    </Button>
+                                                )}
+                                                <Button
+                                                    size="sm"
+                                                    className="h-7 text-xs bg-red-600 hover:bg-red-700"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDeleteBg(bg.id);
+                                                    }}
+                                                >
+                                                    <Trash2 className="w-3 h-3" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
             </div>
         </div>
     );

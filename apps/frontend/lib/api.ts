@@ -165,8 +165,42 @@ export async function deletePhoto(photoId: string): Promise<Photo> {
 }
 
 // ============================================
+// Background Image API
+// ============================================
+
+import { BackgroundImage } from './types';
+
+export async function createBackground(slug: string, url: string, name?: string): Promise<BackgroundImage> {
+    const response = await api.post(`/api/admin/event/${slug}/background`, { url, name });
+    return response.data;
+}
+
+export async function getBackgrounds(slug: string): Promise<BackgroundImage[]> {
+    const response = await api.get(`/api/admin/event/${slug}/backgrounds`);
+    return response.data;
+}
+
+export async function activateBackground(id: string): Promise<BackgroundImage> {
+    const response = await api.patch(`/api/admin/background/${id}/activate`);
+    return response.data;
+}
+
+export async function deactivateAllBackgrounds(slug: string): Promise<void> {
+    await api.patch(`/api/admin/event/${slug}/background/deactivate`);
+}
+
+export async function deleteBackgroundImage(id: string): Promise<BackgroundImage> {
+    const response = await api.delete(`/api/admin/background/${id}`);
+    return response.data;
+}
+
+export async function getActiveBackground(slug: string): Promise<BackgroundImage | null> {
+    const response = await api.get(`/api/event/${slug}/active-background`);
+    return response.data;
+}
+
+// ============================================
 // Export API base URL for WebSocket
 // ============================================
 
 export { API_BASE_URL };
-
