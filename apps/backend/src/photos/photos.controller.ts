@@ -38,6 +38,10 @@ export class PhotosController {
         this.useLocalStorage = !awsKey || awsKey === 'your-access-key';
     }
 
+    private getBaseUrl(): string {
+        return this.configService.get<string>('BACKEND_URL', 'http://localhost:4000');
+    }
+
     /**
      * POST /api/upload/presigned
      * Generate a presigned S3 upload URL (or local URL in dev mode)
@@ -50,7 +54,7 @@ export class PhotosController {
             const fileExtension = dto.fileName.split('.').pop() || 'jpg';
             const key = `${uuidv4()}.${fileExtension}`;
             return {
-                uploadUrl: `http://localhost:4000/api/upload/local`,
+                uploadUrl: `${this.getBaseUrl()}/api/upload/local`,
                 key: key,
                 useLocalUpload: true,
             };
@@ -80,7 +84,7 @@ export class PhotosController {
     @HttpCode(HttpStatus.OK)
     async uploadLocal(@UploadedFile() file: Express.Multer.File) {
         return {
-            url: `http://localhost:4000/uploads/${file.filename}`,
+            url: `${this.getBaseUrl()}/uploads/${file.filename}`,
             key: file.filename,
         };
     }
