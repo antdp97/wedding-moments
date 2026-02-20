@@ -102,7 +102,7 @@ export default function GuestUploader({ eventSlug, eventId }: GuestUploaderProps
     <div className="w-full max-w-md mx-auto p-4">
       <Card className="border-2 border-border/50 bg-card/95 backdrop-blur shadow-lg">
         <CardHeader>
-          <CardTitle className="text-center text-primary text-xl font-bold font-serif">
+          <CardTitle className="text-center text-primary text-xl font-bold">
             Share Your Moment
           </CardTitle>
         </CardHeader>

@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Check, X, Download, Shield, Settings, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import { Check, X, Download, Shield, Settings, RefreshCw, Wifi, WifiOff, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Photo, PhotoStatus } from '@/lib/types';
-import { getAdminPhotos, getEventStats, updatePhotoStatus } from '@/lib/api';
+import { getAdminPhotos, getEventStats, updatePhotoStatus, deletePhoto } from '@/lib/api';
 import { useAdminSocket } from '@/hooks/useLiveWall';
 
 const EVENT_SLUG = 'demo-event';
@@ -87,6 +87,20 @@ export default function AdminDashboard() {
         }
     };
 
+    const handleDelete = async (photoId: string) => {
+        if (!confirm('Are you sure you want to permanently delete this photo?')) return;
+
+        try {
+            await deletePhoto(photoId);
+            setPhotos(prev => prev.filter(p => p.id !== photoId));
+            toast.success('Photo deleted');
+            fetchStats();
+        } catch (error) {
+            console.error('Failed to delete photo:', error);
+            toast.error('Failed to delete photo');
+        }
+    };
+
     const handleRefresh = async () => {
         await Promise.all([fetchPhotos(), fetchStats()]);
         toast.success('Refreshed');
@@ -124,13 +138,13 @@ export default function AdminDashboard() {
     }
 
     return (
-        <div className="min-h-screen bg-background p-6">
-            <div className="max-w-7xl mx-auto space-y-8">
+        <div className="min-h-screen min-h-dvh bg-background p-3 sm:p-6">
+            <div className="max-w-7xl mx-auto space-y-4 sm:space-y-8">
                 {/* Header */}
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold text-foreground">LiveEvent Dashboard</h1>
-                        <p className="text-muted-foreground">Manage your event stream and photos</p>
+                        <h1 className="text-xl sm:text-3xl font-bold text-foreground">Wedding Memos Dashboard</h1>
+                        <p className="text-sm sm:text-base text-muted-foreground">Manage your event stream and photos</p>
                     </div>
                     <div className="flex items-center gap-3">
                         {/* Connection Status */}
@@ -149,25 +163,25 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-2 sm:gap-4">
                     <Card>
-                        <CardHeader className="pb-2">
-                            <CardDescription>Total Uploads</CardDescription>
-                            <CardTitle className="text-4xl">{stats.totalPhotos}</CardTitle>
+                        <CardHeader className="p-3 sm:pb-2 sm:p-6">
+                            <CardDescription className="text-xs sm:text-sm">Total Uploads</CardDescription>
+                            <CardTitle className="text-2xl sm:text-4xl">{stats.totalPhotos}</CardTitle>
                         </CardHeader>
                     </Card>
                     <Card>
-                        <CardHeader className="pb-2">
-                            <CardDescription>Pending Review</CardDescription>
-                            <CardTitle className="text-4xl text-yellow-600 dark:text-yellow-500">
+                        <CardHeader className="p-3 sm:pb-2 sm:p-6">
+                            <CardDescription className="text-xs sm:text-sm">Pending Review</CardDescription>
+                            <CardTitle className="text-2xl sm:text-4xl text-yellow-600 dark:text-yellow-500">
                                 {stats.pendingCount}
                             </CardTitle>
                         </CardHeader>
                     </Card>
                     <Card>
-                        <CardHeader className="pb-2">
-                            <CardDescription>Live on Screen</CardDescription>
-                            <CardTitle className="text-4xl text-green-600 dark:text-green-500">
+                        <CardHeader className="p-3 sm:pb-2 sm:p-6">
+                            <CardDescription className="text-xs sm:text-sm">Live on Screen</CardDescription>
+                            <CardTitle className="text-2xl sm:text-4xl text-green-600 dark:text-green-500">
                                 {stats.approvedCount}
                             </CardTitle>
                         </CardHeader>
@@ -191,7 +205,7 @@ export default function AdminDashboard() {
 
                 {/* Grid */}
                 {!loading && photos.length > 0 && (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4">
                         {photos.map((photo) => (
                             <div key={photo.id} className="group relative aspect-square bg-card rounded-xl overflow-hidden shadow-sm border border-border">
                                 <img src={photo.url} alt={photo.senderName || 'Guest'} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
@@ -206,20 +220,30 @@ export default function AdminDashboard() {
                                 </div>
 
                                 {/* Actions Overlay */}
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 backdrop-blur-[2px]">
+                                    <div className="flex gap-2">
+                                        <Button
+                                            className="rounded-full w-12 h-12 bg-green-500 hover:bg-green-600 text-white border-none"
+                                            onClick={() => handleUpdateStatus(photo.id, PhotoStatus.APPROVED)}
+                                            title="Approve"
+                                        >
+                                            <Check className="w-6 h-6" />
+                                        </Button>
+                                        <Button
+                                            className="rounded-full w-12 h-12 bg-yellow-500 hover:bg-yellow-600 text-white border-none"
+                                            onClick={() => handleUpdateStatus(photo.id, PhotoStatus.REJECTED)}
+                                            title="Reject"
+                                        >
+                                            <X className="w-6 h-6" />
+                                        </Button>
+                                    </div>
                                     <Button
-                                        className="rounded-full w-12 h-12 bg-green-500 hover:bg-green-600 text-white border-none"
-                                        onClick={() => handleUpdateStatus(photo.id, PhotoStatus.APPROVED)}
-                                        title="Approve"
+                                        className="rounded-full w-12 h-8 bg-red-600 hover:bg-red-700 text-white border-none mt-2"
+                                        onClick={() => handleDelete(photo.id)}
+                                        title="Delete Permanently"
                                     >
-                                        <Check className="w-6 h-6" />
-                                    </Button>
-                                    <Button
-                                        className="rounded-full w-12 h-12 bg-red-500 hover:bg-red-600 text-white border-none"
-                                        onClick={() => handleUpdateStatus(photo.id, PhotoStatus.REJECTED)}
-                                        title="Reject"
-                                    >
-                                        <X className="w-6 h-6" />
+                                        <Trash2 className="w-4 h-4 mr-1" />
+                                        Delete
                                     </Button>
                                 </div>
 

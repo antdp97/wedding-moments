@@ -25,10 +25,26 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
         setIsNewPhoto(true);
     }, []);
 
+    // Handle photo removal
+    const handlePhotoRemoved = useCallback((removedPhotoId: string) => {
+        setPhotos((prev) => {
+            const filtered = prev.filter((p) => p.id !== removedPhotoId);
+            // Adjust index if we removed the current or a previous photo
+            setCurrentIndex((curr) => {
+                if (filtered.length === 0) return 0;
+                // If it's out of bounds after deletion, clamp it
+                if (curr >= filtered.length) return 0;
+                return curr;
+            });
+            return filtered;
+        });
+    }, []);
+
     // Connect to WebSocket
     const { isConnected, connectionError } = useLiveWall({
         eventSlug,
         onPhotoApproved: handlePhotoApproved,
+        onPhotoRemoved: handlePhotoRemoved,
     });
 
     // Load initial photos from API
@@ -74,18 +90,19 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
         return (
             <div className="relative w-full h-screen bg-gradient-to-br from-gray-900 to-black flex flex-col items-center justify-center">
                 <div className="text-center space-y-6">
-                    <h1 className="text-white text-4xl font-bold font-serif">
+                    <h1 className="text-white text-2xl sm:text-4xl font-bold">
                         Waiting for Photos...
                     </h1>
-                    <p className="text-gray-400 text-lg">
+                    <p className="text-gray-400 text-sm sm:text-lg">
                         Scan the QR code to upload the first photo!
                     </p>
                 </div>
 
                 {/* QR Code */}
-                <div className="absolute bottom-8 right-8 bg-white p-4 rounded-xl shadow-2xl z-50 flex flex-col items-center gap-2">
-                    <QRCodeSVG value={uploadUrl} size={128} />
-                    <p className="text-black font-bold text-sm tracking-wider">{eventSlug}</p>
+                <div className="absolute bottom-4 right-4 sm:bottom-8 sm:right-8 bg-white p-2 sm:p-4 rounded-xl shadow-2xl z-50 flex flex-col items-center gap-1 sm:gap-2">
+                    <QRCodeSVG value={uploadUrl} size={80} className="sm:hidden" />
+                    <QRCodeSVG value={uploadUrl} size={128} className="hidden sm:block" />
+                    <p className="text-black font-bold text-xs sm:text-sm tracking-wider">{eventSlug}</p>
                 </div>
 
                 {/* Connection Status */}
@@ -118,11 +135,11 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
                         />
 
                         {/* Main Image */}
-                        <div className="relative z-10 w-full h-full flex flex-col items-center justify-center p-8">
+                        <div className="relative z-10 w-full h-full flex flex-col items-center justify-center p-4 sm:p-8">
                             <motion.img
                                 src={currentPhoto.url}
                                 alt="Event photo"
-                                className="max-h-[85vh] max-w-[90vw] object-contain rounded-xl shadow-2xl border-4 border-white/10"
+                                className="max-h-[80vh] sm:max-h-[85vh] max-w-[95vw] sm:max-w-[90vw] object-contain rounded-xl shadow-2xl border-4 border-white/10"
                                 initial={{ y: 20, opacity: 0 }}
                                 animate={{ y: 0, opacity: 1 }}
                                 transition={{ delay: 0.2 }}
@@ -134,12 +151,12 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
                                     initial={{ y: 50, opacity: 0 }}
                                     animate={{ y: 0, opacity: 1 }}
                                     transition={{ delay: 0.5 }}
-                                    className="absolute bottom-12 bg-black/60 backdrop-blur-md text-white px-8 py-4 rounded-full flex flex-col items-center shadow-xl"
+                                    className="absolute bottom-16 sm:bottom-12 left-4 right-4 sm:left-auto sm:right-auto bg-black/60 backdrop-blur-md text-white px-4 sm:px-8 py-3 sm:py-4 rounded-2xl sm:rounded-full flex flex-col items-center shadow-xl"
                                 >
-                                    <span className="text-2xl font-bold font-serif">
+                                    <span className="text-base sm:text-2xl font-bold">
                                         {currentPhoto.message}
                                     </span>
-                                    <span className="text-sm text-gray-300 uppercase tracking-widest mt-1">
+                                    <span className="text-xs sm:text-sm text-gray-300 uppercase tracking-widest mt-1">
                                         — {currentPhoto.senderName || 'Anonymous'}
                                     </span>
                                 </motion.div>
@@ -151,7 +168,7 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
                             <motion.div
                                 initial={{ scale: 0, rotate: -10 }}
                                 animate={{ scale: 1, rotate: 0 }}
-                                className="absolute top-10 right-10 bg-accent text-accent-foreground px-6 py-2 text-xl font-bold rounded-full shadow-lg z-20 border-4 border-white transform rotate-12"
+                                className="absolute top-4 right-4 sm:top-10 sm:right-10 bg-accent text-accent-foreground px-3 sm:px-6 py-1 sm:py-2 text-sm sm:text-xl font-bold rounded-full shadow-lg z-20 border-2 sm:border-4 border-white transform rotate-12"
                             >
                                 🎉 NEW PHOTO!
                             </motion.div>
@@ -161,21 +178,22 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
             </AnimatePresence>
 
             {/* Persistent QR Overlay */}
-            <div className="absolute bottom-8 right-8 bg-white p-4 rounded-xl shadow-2xl z-50 flex flex-col items-center gap-2">
-                <QRCodeSVG value={uploadUrl} size={128} />
-                <p className="text-black font-bold text-sm tracking-wider">{eventSlug}</p>
+            <div className="absolute bottom-4 right-4 sm:bottom-8 sm:right-8 bg-white p-2 sm:p-4 rounded-xl shadow-2xl z-50 flex flex-col items-center gap-1 sm:gap-2">
+                <QRCodeSVG value={uploadUrl} size={80} className="sm:hidden" />
+                <QRCodeSVG value={uploadUrl} size={128} className="hidden sm:block" />
+                <p className="text-black font-bold text-xs sm:text-sm tracking-wider">{eventSlug}</p>
             </div>
 
             {/* Title & Connection Status Overlay */}
-            <div className="absolute top-8 left-8 z-50 flex items-center gap-4">
-                <h1 className="text-white/80 text-4xl font-serif font-bold drop-shadow-lg">
+            <div className="absolute top-4 left-4 sm:top-8 sm:left-8 z-50 flex items-center gap-2 sm:gap-4">
+                <h1 className="text-white/80 text-lg sm:text-4xl font-bold drop-shadow-lg">
                     {eventSlug.toUpperCase().replace(/-/g, ' ')}
                 </h1>
                 <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-yellow-500 animate-pulse'}`} />
             </div>
 
             {/* Photo Counter */}
-            <div className="absolute top-8 right-8 z-50 text-white/60 text-sm">
+            <div className="absolute top-4 right-4 sm:top-8 sm:right-8 z-50 text-white/60 text-xs sm:text-sm">
                 {currentIndex + 1} / {photos.length}
             </div>
         </div>

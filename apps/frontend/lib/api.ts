@@ -156,6 +156,14 @@ export async function uploadToS3(uploadUrl: string, file: File): Promise<void> {
     });
 }
 
+/**
+ * Delete a photo permanently (Admin)
+ */
+export async function deletePhoto(photoId: string): Promise<Photo> {
+    const response = await api.delete(`/api/admin/photo/${photoId}`);
+    return response.data;
+}
+
 // ============================================
 // Export API base URL for WebSocket
 // ============================================

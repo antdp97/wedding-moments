@@ -11,6 +11,7 @@ import { API_BASE_URL } from '@/lib/api';
 interface UseLiveWallOptions {
     eventSlug: string;
     onPhotoApproved?: (photo: Photo) => void;
+    onPhotoRemoved?: (photoId: string) => void;
 }
 
 interface UseLiveWallReturn {
@@ -21,16 +22,23 @@ interface UseLiveWallReturn {
 export function useLiveWall({
     eventSlug,
     onPhotoApproved,
+    onPhotoRemoved,
 }: UseLiveWallOptions): UseLiveWallReturn {
     const socketRef = useRef<Socket | null>(null);
     const [isConnected, setIsConnected] = useState(false);
     const [connectionError, setConnectionError] = useState<string | null>(null);
 
-    // Stable callback ref
+    // Stable callback refs
     const onPhotoApprovedRef = useRef(onPhotoApproved);
+    const onPhotoRemovedRef = useRef(onPhotoRemoved);
+
     useEffect(() => {
         onPhotoApprovedRef.current = onPhotoApproved;
     }, [onPhotoApproved]);
+
+    useEffect(() => {
+        onPhotoRemovedRef.current = onPhotoRemoved;
+    }, [onPhotoRemoved]);
 
     useEffect(() => {
         if (!eventSlug) return;
@@ -70,6 +78,12 @@ export function useLiveWall({
         socket.on('photo_approved', (photo: Photo) => {
             console.log('[WebSocket] New photo approved:', photo.id);
             onPhotoApprovedRef.current?.(photo);
+        });
+
+        // Listen for photo removals (rejections/deletions)
+        socket.on('photo_removed', ({ id }: { id: string }) => {
+            console.log('[WebSocket] Photo removed:', id);
+            onPhotoRemovedRef.current?.(id);
         });
 
         // Cleanup on unmount
