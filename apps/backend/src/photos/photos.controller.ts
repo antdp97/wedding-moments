@@ -143,4 +143,66 @@ export class PhotosController {
     async deletePhoto(@Param('id') id: string) {
         return this.photosService.delete(id);
     }
+
+    // ============================================
+    // Background Image Endpoints
+    // ============================================
+
+    /**
+     * POST /api/admin/event/:slug/background
+     * Save a new background image for the event
+     */
+    @Post('admin/event/:slug/background')
+    async createBackground(
+        @Param('slug') slug: string,
+        @Body() body: { url: string; name?: string },
+    ) {
+        return this.photosService.createBackground(slug, body.url, body.name);
+    }
+
+    /**
+     * GET /api/admin/event/:slug/backgrounds
+     * List all background images for an event
+     */
+    @Get('admin/event/:slug/backgrounds')
+    async getBackgrounds(@Param('slug') slug: string) {
+        return this.photosService.getBackgrounds(slug);
+    }
+
+    /**
+     * PATCH /api/admin/background/:id/activate
+     * Set a background as active
+     */
+    @Patch('admin/background/:id/activate')
+    async activateBackground(@Param('id') id: string) {
+        return this.photosService.activateBackground(id);
+    }
+
+    /**
+     * PATCH /api/admin/event/:slug/background/deactivate
+     * Deactivate all backgrounds (revert to default)
+     */
+    @Patch('admin/event/:slug/background/deactivate')
+    async deactivateAllBackgrounds(@Param('slug') slug: string) {
+        return this.photosService.deactivateAllBackgrounds(slug);
+    }
+
+    /**
+     * DELETE /api/admin/background/:id
+     * Delete a background image
+     */
+    @Delete('admin/background/:id')
+    @HttpCode(HttpStatus.OK)
+    async deleteBackground(@Param('id') id: string) {
+        return this.photosService.deleteBackground(id);
+    }
+
+    /**
+     * GET /api/event/:slug/active-background
+     * Public — get active background for Live Wall
+     */
+    @Get('event/:slug/active-background')
+    async getActiveBackground(@Param('slug') slug: string) {
+        return this.photosService.getActiveBackground(slug);
+    }
 }

@@ -179,4 +179,91 @@ export class PhotosService {
 
         return photo;
     }
+
+    // ============================================
+    // Background Image Methods
+    // ============================================
+
+    async createBackground(eventSlug: string, url: string, name?: string) {
+        const event = await this.prisma.event.findUnique({ where: { slug: eventSlug } });
+        if (!event) throw new NotFoundException(`Event with slug ${eventSlug} not found`);
+
+        return this.prisma.backgroundImage.create({
+            data: { eventId: event.id, url, name: name || null },
+        });
+    }
+
+    async getBackgrounds(eventSlug: string) {
+        const event = await this.prisma.event.findUnique({ where: { slug: eventSlug } });
+        if (!event) throw new NotFoundException(`Event with slug ${eventSlug} not found`);
+
+        return this.prisma.backgroundImage.findMany({
+            where: { eventId: event.id },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+
+    async activateBackground(backgroundId: string) {
+        const bg = await this.prisma.backgroundImage.findUnique({
+            where: { id: backgroundId },
+            include: { event: true },
+        });
+        if (!bg) throw new NotFoundException(`Background with ID ${backgroundId} not found`);
+
+        // Deactivate all backgrounds for this event
+        await this.prisma.backgroundImage.updateMany({
+            where: { eventId: bg.eventId },
+            data: { isActive: false },
+        });
+
+        // Activate the selected one
+        const updated = await this.prisma.backgroundImage.update({
+            where: { id: backgroundId },
+            data: { isActive: true },
+        });
+
+        // Emit to Live Wall
+        this.eventsGateway.emitBackgroundChanged(bg.event.slug, updated.url);
+
+        return updated;
+    }
+
+    async deactivateAllBackgrounds(eventSlug: string) {
+        const event = await this.prisma.event.findUnique({ where: { slug: eventSlug } });
+        if (!event) throw new NotFoundException(`Event with slug ${eventSlug} not found`);
+
+        await this.prisma.backgroundImage.updateMany({
+            where: { eventId: event.id },
+            data: { isActive: false },
+        });
+
+        // Emit null to revert to default gradient
+        this.eventsGateway.emitBackgroundChanged(eventSlug, null);
+    }
+
+    async deleteBackground(backgroundId: string) {
+        const bg = await this.prisma.backgroundImage.findUnique({
+            where: { id: backgroundId },
+            include: { event: true },
+        });
+        if (!bg) throw new NotFoundException(`Background with ID ${backgroundId} not found`);
+
+        await this.prisma.backgroundImage.delete({ where: { id: backgroundId } });
+
+        // If the deleted bg was active, notify Live Wall to revert
+        if (bg.isActive) {
+            this.eventsGateway.emitBackgroundChanged(bg.event.slug, null);
+        }
+
+        return bg;
+    }
+
+    async getActiveBackground(eventSlug: string) {
+        const event = await this.prisma.event.findUnique({ where: { slug: eventSlug } });
+        if (!event) throw new NotFoundException(`Event with slug ${eventSlug} not found`);
+
+        return this.prisma.backgroundImage.findFirst({
+            where: { eventId: event.id, isActive: true },
+        });
+    }
 }

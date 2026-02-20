@@ -92,4 +92,14 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.server.to(room).emit('photo_removed', { id: photoId });
         this.logger.log(`Emitted photo_removed (${photoId}) to ${room}`);
     }
+
+    /**
+     * Emit background_changed event to all clients in the event room
+     * Called by PhotosService when admin changes the active background
+     */
+    emitBackgroundChanged(eventSlug: string, backgroundUrl: string | null): void {
+        const room = `event-${eventSlug}`;
+        this.server.to(room).emit('background_changed', { url: backgroundUrl });
+        this.logger.log(`Emitted background_changed to ${room}`);
+    }
 }
