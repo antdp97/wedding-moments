@@ -11,7 +11,7 @@ interface LiveWallProps {
     eventSlug: string;
 }
 
-import { Sparkles, Image as ImageIcon } from 'lucide-react';
+import { Sparkles, Image as ImageIcon, Maximize, Minimize } from 'lucide-react';
 
 // ... (other imports)
 
@@ -23,6 +23,7 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
 
     // Track user motion preference for accessibility
     const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     useEffect(() => {
         const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -30,6 +31,24 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
         const handleChange = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
         mediaQuery.addEventListener('change', handleChange);
         return () => mediaQuery.removeEventListener('change', handleChange);
+    }, []);
+
+    useEffect(() => {
+        const onFullscreenChange = () => {
+            setIsFullscreen(!!document.fullscreenElement);
+        };
+        document.addEventListener('fullscreenchange', onFullscreenChange);
+        return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+    }, []);
+
+    const toggleFullscreen = useCallback(() => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => {
+                console.error(`Error attempting to enable fullscreen: ${err.message}`);
+            });
+        } else {
+            document.exitFullscreen();
+        }
     }, []);
 
     // Handle new photo from WebSocket
@@ -290,9 +309,24 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
             {/* ── Title & Status Overlay ── */}
             <div className="absolute top-6 left-6 sm:top-12 sm:left-12 z-50 flex items-center gap-4">
                 <div className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ${isConnected ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]'}`} />
-                <h1 className="text-white/70 text-xs sm:text-sm font-medium tracking-[0.3em] uppercase">
+                <h1 className="text-white/70 text-xs sm:text-sm font-medium tracking-[0.3em] uppercase drop-shadow-md">
                     {eventSlug.replace(/-/g, ' ')}
                 </h1>
+            </div>
+
+            {/* ── Fullscreen Toggle Overlay (Top Right) ── */}
+            <div className="absolute top-6 right-6 sm:top-12 sm:right-12 z-50 flex items-center gap-4">
+                <button
+                    onClick={toggleFullscreen}
+                    className="p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full shadow-lg border border-white/20 text-white/80 hover:text-white transition-all transform hover:scale-110 active:scale-95 group"
+                    aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                >
+                    {isFullscreen ? (
+                        <Minimize className="w-5 h-5 drop-shadow-lg" />
+                    ) : (
+                        <Maximize className="w-5 h-5 drop-shadow-lg" />
+                    )}
+                </button>
             </div>
 
             {/* ── Photo Counter (Moved to Bottom Left) ── */}
