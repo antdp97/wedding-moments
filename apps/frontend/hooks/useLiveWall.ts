@@ -50,8 +50,8 @@ export function useLiveWall({
     useEffect(() => {
         if (!eventSlug) return;
 
-        // Initialize socket connection to /events namespace
-        const socket = io(`${API_BASE_URL}/events`, {
+        // Initialize socket connection (default namespace)
+        const socket = io(API_BASE_URL, {
             transports: ['polling', 'websocket'],
             upgrade: true,
             reconnection: true,
@@ -137,7 +137,7 @@ export function useAdminSocket({
     useEffect(() => {
         if (!eventSlug) return;
 
-        const socket = io(`${API_BASE_URL}/events`, {
+        const socket = io(API_BASE_URL, {
             transports: ['polling', 'websocket'],
             upgrade: true,
             timeout: 20000,
