@@ -52,10 +52,13 @@ export function useLiveWall({
 
         // Initialize socket connection to /events namespace
         const socket = io(`${API_BASE_URL}/events`, {
-            transports: ['websocket', 'polling'],
+            transports: ['polling', 'websocket'],
+            upgrade: true,
             reconnection: true,
-            reconnectionAttempts: 5,
+            reconnectionAttempts: 10,
             reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            timeout: 20000,
         });
 
         socketRef.current = socket;
@@ -135,7 +138,9 @@ export function useAdminSocket({
         if (!eventSlug) return;
 
         const socket = io(`${API_BASE_URL}/events`, {
-            transports: ['websocket', 'polling'],
+            transports: ['polling', 'websocket'],
+            upgrade: true,
+            timeout: 20000,
         });
 
         socketRef.current = socket;
