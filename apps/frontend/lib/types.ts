@@ -87,3 +87,9 @@ export interface BackgroundImage {
     isActive: boolean;
     createdAt: string;
 }
+
+export interface EventWithCounts extends Event {
+    _count: {
+        photos: number;
+    };
+}

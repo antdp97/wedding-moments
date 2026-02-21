@@ -1,31 +1,41 @@
-import GuestUploader from "@/components/GuestUploader";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Camera, Tv, ArrowRight, Shield } from "lucide-react";
 
 export default function Home() {
-  // For demo: using a hardcoded event
-  // In production, this would come from URL params or user selection
-  const DEMO_EVENT_ID = "691b044c-187b-431d-9d00-1924e2000986";
-  const DEMO_EVENT_SLUG = "demo-event";
-
   return (
-    <main className="min-h-screen min-h-dvh bg-background flex flex-col items-center justify-center px-4 py-20 sm:p-4">
-      {/* Top Brand Bar */}
-      <div className="fixed left-0 top-0 w-full z-50 flex justify-center border-b border-border bg-background/80 backdrop-blur-2xl px-4 py-3 sm:py-4">
-        <p className="font-bold text-primary text-lg tracking-wide">
-          Wedding Memos
-        </p>
-      </div>
-
-      <div className="z-10 w-full max-w-md flex flex-col items-center gap-6 sm:gap-8">
-        <div className="text-center space-y-3 sm:space-y-4">
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-primary">
-            Welcome to the Party
+    <main className="min-h-screen min-h-dvh bg-background flex flex-col items-center justify-center px-4 py-20">
+      <div className="z-10 w-full max-w-2xl flex flex-col items-center gap-10">
+        <div className="text-center space-y-4">
+          <div className="w-20 h-20 mx-auto bg-primary/10 rounded-full flex flex-col items-center justify-center mb-6">
+            <Camera className="w-10 h-10 text-primary" />
+          </div>
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-primary">
+            Wedding Memos
           </h1>
-          <p className="text-sm sm:text-base leading-7 text-muted-foreground">
-            Snap a photo or video and see it on the big screen instantly.
+          <p className="text-lg sm:text-xl text-muted-foreground max-w-lg mx-auto">
+            The instant photo sharing experience for events.
           </p>
         </div>
 
-        <GuestUploader eventId={DEMO_EVENT_ID} eventSlug={DEMO_EVENT_SLUG} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-lg mt-4">
+          <div className="flex flex-col items-center justify-center p-8 bg-card rounded-2xl border border-border/50 shadow-sm text-center">
+            <Camera className="w-8 h-8 text-primary mb-3" />
+            <h3 className="font-bold text-lg mb-1">Are you a Guest?</h3>
+            <p className="text-sm text-muted-foreground mb-4">Scan the QR code at your event to start uploading photos!</p>
+          </div>
+
+          <div className="flex flex-col items-center justify-center p-8 bg-card rounded-2xl border border-border/50 shadow-sm text-center">
+            <Shield className="w-8 h-8 text-primary mb-3" />
+            <h3 className="font-bold text-lg mb-1">Host an Event?</h3>
+            <p className="text-sm text-muted-foreground mb-4">Manage your event galleries and live screens.</p>
+            <Link href="/admin">
+              <Button variant="outline" size="sm" className="w-full">
+                Go to Dashboard <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </Link>
+          </div>
+        </div>
       </div>
     </main>
   );

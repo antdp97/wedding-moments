@@ -11,38 +11,26 @@ interface LiveWallProps {
     eventSlug: string;
 }
 
-// ─── Floating Polaroid positions ───
-// Pre-defined "orbit slots" for the floating thumbnails so they stay
-// scattered around the edges without overlapping the center hero.
-interface FloatSlot {
-    x: string;        // CSS left %
-    y: string;        // CSS top %
-    rotate: number;    // deg
-    scale: number;
-    delay: number;     // animation stagger
-    duration: number;  // float cycle length (s)
-    driftX: number;    // px to float horizontally
-    driftY: number;    // px to float vertically
-}
+import { Sparkles, Image as ImageIcon } from 'lucide-react';
 
-const FLOAT_SLOTS: FloatSlot[] = [
-    { x: '3%', y: '5%', rotate: -12, scale: 0.55, delay: 0, duration: 8, driftX: 15, driftY: 20 },
-    { x: '78%', y: '3%', rotate: 8, scale: 0.50, delay: 0.8, duration: 9, driftX: -12, driftY: 18 },
-    { x: '85%', y: '35%', rotate: -5, scale: 0.48, delay: 1.5, duration: 10, driftX: -18, driftY: -15 },
-    { x: '80%', y: '70%', rotate: 14, scale: 0.52, delay: 0.3, duration: 7, driftX: 10, driftY: -20 },
-    { x: '5%', y: '68%', rotate: -10, scale: 0.50, delay: 2.0, duration: 11, driftX: 20, driftY: -12 },
-    { x: '2%', y: '38%', rotate: 7, scale: 0.45, delay: 1.2, duration: 9, driftX: 18, driftY: 15 },
-    { x: '20%', y: '82%', rotate: -6, scale: 0.42, delay: 0.5, duration: 8, driftX: -10, driftY: -18 },
-    { x: '60%', y: '80%', rotate: 11, scale: 0.46, delay: 1.8, duration: 10, driftX: 12, driftY: -14 },
-    { x: '55%', y: '2%', rotate: -9, scale: 0.44, delay: 2.5, duration: 9, driftX: -15, driftY: 16 },
-    { x: '30%', y: '3%', rotate: 5, scale: 0.40, delay: 0.6, duration: 12, driftX: 8, driftY: 22 },
-];
+// ... (other imports)
 
 export default function LiveWall({ eventSlug }: LiveWallProps) {
     const [photos, setPhotos] = useState<Photo[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isNewPhoto, setIsNewPhoto] = useState(false);
     const [loading, setLoading] = useState(true);
+
+    // Track user motion preference for accessibility
+    const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+    useEffect(() => {
+        const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+        setPrefersReducedMotion(mediaQuery.matches);
+        const handleChange = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
+        mediaQuery.addEventListener('change', handleChange);
+        return () => mediaQuery.removeEventListener('change', handleChange);
+    }, []);
 
     // Handle new photo from WebSocket
     const handlePhotoApproved = useCallback((newPhoto: Photo) => {
@@ -72,7 +60,7 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
     }, []);
 
     // Connect to WebSocket
-    const { isConnected, connectionError } = useLiveWall({
+    const { isConnected } = useLiveWall({
         eventSlug,
         onPhotoApproved: handlePhotoApproved,
         onPhotoRemoved: handlePhotoRemoved,
@@ -99,33 +87,59 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
         fetchData();
     }, [eventSlug]);
 
-    // Cycle main photo every 6 seconds
+    // Cycle main photo every 8 seconds
     useEffect(() => {
         const interval = setInterval(() => {
             if (photos.length > 0) {
                 setCurrentIndex((prev) => (prev + 1) % photos.length);
                 setIsNewPhoto(false);
             }
-        }, 6000);
+        }, 8000); // 8s for cinematic pacing
         return () => clearInterval(interval);
     }, [photos.length]);
 
-    // Get the "other" photos for the floating polaroids (exclude the current main one)
+    const currentPhoto = photos[currentIndex];
+    // ─── 3D Parallax Constellation Slots ───
+    const ORBIT_SLOTS = useMemo(() => [
+        // Foreground (Fast, large, slightly blurred)
+        { x: '10%', y: '15%', scale: 0.6, blur: 'blur(3px)', duration: 20, driftX: 40, driftY: 30, opacity: 0.5 },
+        { x: '80%', y: '10%', scale: 0.65, blur: 'blur(4px)', duration: 25, driftX: -50, driftY: 40, opacity: 0.4 },
+        { x: '15%', y: '75%', scale: 0.7, blur: 'blur(3px)', duration: 22, driftX: 45, driftY: -35, opacity: 0.45 },
+        { x: '75%', y: '80%', scale: 0.55, blur: 'blur(5px)', duration: 28, driftX: -30, driftY: -45, opacity: 0.4 },
+        // Midground (Medium speed, sharp, medium scale)
+        { x: '5%', y: '45%', scale: 0.4, blur: 'blur(0px)', duration: 35, driftX: 25, driftY: 20, opacity: 0.8 },
+        { x: '85%', y: '40%', scale: 0.45, blur: 'blur(0.5px)', duration: 32, driftX: -20, driftY: 25, opacity: 0.75 },
+        { x: '60%', y: '5%', scale: 0.35, blur: 'blur(0px)', duration: 38, driftX: 15, driftY: 30, opacity: 0.85 },
+        { x: '40%', y: '85%', scale: 0.38, blur: 'blur(0px)', duration: 36, driftX: 20, driftY: -20, opacity: 0.8 },
+        { x: '25%', y: '5%', scale: 0.42, blur: 'blur(1px)', duration: 30, driftX: -25, driftY: 15, opacity: 0.7 },
+        { x: '65%', y: '85%', scale: 0.4, blur: 'blur(0.5px)', duration: 33, driftX: 30, driftY: -25, opacity: 0.75 },
+        // Background (Very slow, small, heavy blur)
+        { x: '2%', y: '25%', scale: 0.25, blur: 'blur(8px)', duration: 50, driftX: 10, driftY: 15, opacity: 0.25 },
+        { x: '92%', y: '65%', scale: 0.2, blur: 'blur(10px)', duration: 55, driftX: -15, driftY: -10, opacity: 0.2 },
+        { x: '35%', y: '15%', scale: 0.22, blur: 'blur(6px)', duration: 45, driftX: 12, driftY: 20, opacity: 0.3 },
+        { x: '50%', y: '90%', scale: 0.28, blur: 'blur(9px)', duration: 60, driftX: -10, driftY: -15, opacity: 0.25 },
+        { x: '88%', y: '25%', scale: 0.24, blur: 'blur(7px)', duration: 48, driftX: -12, driftY: 10, opacity: 0.3 },
+        { x: '12%', y: '60%', scale: 0.26, blur: 'blur(6px)', duration: 52, driftX: 15, driftY: -12, opacity: 0.3 },
+        { x: '45%', y: '5%', scale: 0.2, blur: 'blur(10px)', duration: 65, driftX: -8, driftY: 18, opacity: 0.15 },
+        { x: '25%', y: '95%', scale: 0.21, blur: 'blur(12px)', duration: 70, driftX: 10, driftY: -20, opacity: 0.15 },
+    ], []);
+
     const floatingPhotos = useMemo(() => {
         if (photos.length <= 1) return [];
         const others = photos.filter((_, i) => i !== currentIndex);
-        // Take up to FLOAT_SLOTS.length photos
-        return others.slice(0, FLOAT_SLOTS.length);
-    }, [photos, currentIndex]);
+        return others.slice(0, ORBIT_SLOTS.length);
+    }, [photos, currentIndex, ORBIT_SLOTS]);
 
-    const currentPhoto = photos[currentIndex];
     const uploadUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/${eventSlug}`;
 
     // ─── Loading ───
     if (loading) {
         return (
             <div className="w-full h-screen h-dvh bg-black flex items-center justify-center">
-                <div className="text-white text-2xl animate-pulse">Loading...</div>
+                <div className="text-white/50 flex flex-col items-center gap-4">
+                    <ImageIcon className="w-8 h-8 animate-pulse text-white/30" />
+                    <span className="text-sm uppercase tracking-widest font-medium">Entering Live Wall</span>
+                </div>
             </div>
         );
     }
@@ -133,33 +147,29 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
     // ─── Empty state ───
     if (photos.length === 0) {
         return (
-            <div className="relative w-full h-screen h-dvh bg-gradient-to-br from-gray-900 to-black flex flex-col items-center justify-center">
-                <div className="text-center space-y-6 px-4">
-                    <h1 className="text-white text-2xl sm:text-4xl font-bold">
-                        Waiting for Photos...
+            <div className="relative w-full h-screen h-dvh bg-gradient-to-br from-gray-900 to-black flex flex-col items-center justify-center overflow-hidden">
+                <div className="absolute inset-0 bg-[url('/noise.png')] opacity-20 mix-blend-overlay pointer-events-none" />
+                <div className="text-center space-y-8 px-4 z-10">
+                    <h1 className="text-white text-3xl sm:text-5xl font-bold tracking-tight">
+                        Experience Awaits
                     </h1>
-                    <p className="text-gray-400 text-sm sm:text-lg">
-                        Scan the QR code to upload the first photo!
+                    <p className="text-gray-400 text-base sm:text-lg max-w-md mx-auto">
+                        Be the first to shape the story. Scan the code below to upload a moment.
                     </p>
                 </div>
-                <div className="absolute bottom-4 right-4 sm:bottom-8 sm:right-8 bg-white p-2 sm:p-4 rounded-xl shadow-2xl z-50 flex flex-col items-center gap-1 sm:gap-2">
-                    <QRCodeSVG value={uploadUrl} size={80} className="sm:hidden" />
-                    <QRCodeSVG value={uploadUrl} size={128} className="hidden sm:block" />
-                    <p className="text-black font-bold text-xs sm:text-sm tracking-wider">{eventSlug}</p>
-                </div>
-                <div className="absolute top-4 right-4 sm:top-8 sm:right-8 flex items-center gap-2">
-                    <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-                    <span className="text-white text-sm">
-                        {isConnected ? 'Live' : connectionError || 'Connecting...'}
-                    </span>
+                {/* Minimalist QR Card */}
+                <div className="absolute bottom-8 sm:bottom-12 bg-white/5 backdrop-blur-xl border border-white/10 p-6 rounded-3xl shadow-2xl z-50 flex flex-col items-center gap-4 hover:bg-white/10 transition-colors">
+                    <QRCodeSVG value={uploadUrl} size={140} className="rounded-xl opacity-90 mix-blend-screen" fgColor="#fff" bgColor="transparent" />
+                    <p className="text-white/70 font-semibold text-xs tracking-[0.2em] uppercase">{eventSlug}</p>
                 </div>
             </div>
         );
     }
 
-    // ─── Main live wall with floating polaroids ───
+
+    // ─── Main live wall with Cinematic Masonry Background ───
     return (
-        <div className="relative w-full h-screen h-dvh overflow-hidden"
+        <div className="relative w-full h-screen h-dvh overflow-hidden bg-black"
             style={backgroundUrl ? {
                 backgroundImage: `url(${backgroundUrl})`,
                 backgroundSize: 'cover',
@@ -167,99 +177,92 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
             } : undefined}
         >
             {/* Dark overlay on custom background for readability */}
-            {backgroundUrl && (
-                <div className="absolute inset-0 bg-black/40 z-0" />
-            )}
-            {/* Default gradient if no background */}
-            {!backgroundUrl && (
-                <div className="absolute inset-0 bg-gradient-to-br from-[#1a120b] via-[#0d0907] to-black z-0" />
-            )}
+            <div className={`absolute inset-0 z-0 ${backgroundUrl ? 'bg-black/60' : 'bg-gradient-to-br from-gray-900 via-black to-slate-900'}`} />
 
-            {/* ── Floating Polaroid Thumbnails ── */}
-            {floatingPhotos.map((photo, i) => {
-                const slot = FLOAT_SLOTS[i % FLOAT_SLOTS.length];
+            {/* ── 3D Parallax Constellation (Background) ── */}
+            {!backgroundUrl && floatingPhotos.map((photo, i) => {
+                const slot = ORBIT_SLOTS[i % ORBIT_SLOTS.length];
                 return (
                     <motion.div
-                        key={`float-${photo.id}-${i}`}
-                        className="absolute z-10 pointer-events-none"
+                        key={`parallax-${photo.id}-${i}`}
+                        className="absolute z-0 pointer-events-none"
                         style={{
                             left: slot.x,
                             top: slot.y,
+                            filter: slot.blur,
+                            opacity: slot.opacity,
                         }}
-                        initial={{ opacity: 0, scale: 0.3, rotate: slot.rotate - 20 }}
-                        animate={{
-                            opacity: [0, 0.75, 0.85, 0.75],
-                            scale: slot.scale,
-                            rotate: slot.rotate,
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={prefersReducedMotion ? {
+                            scale: slot.scale, opacity: slot.opacity
+                        } : {
+                            scale: [slot.scale, slot.scale * 1.05, slot.scale],
                             x: [0, slot.driftX, 0, -slot.driftX * 0.5, 0],
                             y: [0, slot.driftY, 0, -slot.driftY * 0.5, 0],
+                            opacity: [slot.opacity, slot.opacity * 1.2, slot.opacity],
+                            rotate: [0, 2, -2, 0]
                         }}
                         transition={{
                             duration: slot.duration,
-                            delay: slot.delay,
                             repeat: Infinity,
                             ease: 'easeInOut',
                         }}
                     >
-                        {/* Polaroid card */}
-                        <div className="bg-white p-1.5 sm:p-2 rounded-sm shadow-xl shadow-black/40"
-                            style={{ width: 'clamp(80px, 14vw, 160px)' }}
+                        <div className="bg-white/10 p-2 rounded-2xl shadow-2xl backdrop-blur-sm border border-white/5"
+                            style={{ width: 'clamp(120px, 20vw, 240px)' }}
                         >
                             <img
                                 src={photo.url}
                                 alt=""
-                                className="w-full aspect-square object-cover rounded-sm"
+                                className="w-full aspect-[4/5] object-cover rounded-xl shadow-inner"
                                 loading="lazy"
                             />
-                            {/* Polaroid bottom text strip */}
-                            <div className="h-4 sm:h-6 flex items-center justify-center">
-                                <span className="text-[8px] sm:text-[10px] text-gray-600 font-medium truncate max-w-full px-1">
-                                    {photo.senderName || ''}
-                                </span>
-                            </div>
                         </div>
                     </motion.div>
                 );
             })}
 
+            {/* Center Vignette to draw focus to hero */}
+            <div className="absolute inset-0 z-10 bg-[radial-gradient(circle_at_center,transparent_0%,black_100%)] pointer-events-none opacity-80" />
+
             {/* ── Center Hero Photo ── */}
-            <div className="absolute inset-0 flex items-center justify-center z-20">
+            <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
                 <AnimatePresence mode="wait">
                     {currentPhoto && (
                         <motion.div
                             key={currentPhoto.id}
-                            initial={{ opacity: 0, scale: 0.85, y: 30 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: -20 }}
-                            transition={{ duration: 1.0, ease: 'easeInOut' }}
+                            initial={{ opacity: 0, scale: 0.9, y: 40, filter: 'blur(10px)' }}
+                            animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
+                            exit={{ opacity: 0, scale: 0.95, y: -20, filter: 'blur(10px)' }}
+                            transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }} // Custom spring-like easing
                             className="relative flex flex-col items-center"
                         >
-                            {/* Warm glow behind the frame */}
-                            <div className="absolute -inset-4 sm:-inset-8 bg-amber-500/10 rounded-3xl blur-3xl" />
+                            {/* Massive glow */}
+                            <div className="absolute -inset-10 sm:-inset-20 bg-white/20 rounded-full blur-[80px]" />
 
-                            {/* Photo frame */}
-                            <div className="relative bg-white p-2 sm:p-3 rounded-lg shadow-2xl shadow-amber-900/30 border border-white/20">
+                            {/* Ultra-premium glassmorphic frame */}
+                            <div className="relative bg-white/5 backdrop-blur-2xl p-4 sm:p-6 rounded-2xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)] border border-white/20">
                                 <img
                                     src={currentPhoto.url}
                                     alt="Event photo"
-                                    className="max-h-[55vh] sm:max-h-[65vh] max-w-[70vw] sm:max-w-[55vw] object-contain rounded-md"
+                                    className="max-h-[60vh] sm:max-h-[70vh] max-w-[80vw] sm:max-w-[65vw] object-contain rounded-xl shadow-inner border border-white/10"
                                 />
                             </div>
 
-                            {/* Message caption below the frame */}
+                            {/* Cinematic typography for message */}
                             {(currentPhoto.message || currentPhoto.senderName) && (
                                 <motion.div
                                     initial={{ opacity: 0, y: 15 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.6 }}
-                                    className="mt-4 sm:mt-6 bg-black/50 backdrop-blur-md px-5 sm:px-8 py-2.5 sm:py-3 rounded-full text-center shadow-lg"
+                                    transition={{ delay: 0.8, duration: 0.8 }}
+                                    className="mt-6 sm:mt-8 flex flex-col items-center gap-1 sm:gap-2 max-w-2xl px-6 text-center"
                                 >
                                     {currentPhoto.message && (
-                                        <p className="text-white text-sm sm:text-xl font-semibold">
-                                            {currentPhoto.message}
+                                        <p className="text-white text-xl sm:text-4xl font-light tracking-wide leading-relaxed drop-shadow-2xl">
+                                            &quot;{currentPhoto.message}&quot;
                                         </p>
                                     )}
-                                    <p className="text-gray-400 text-[10px] sm:text-xs uppercase tracking-widest mt-0.5">
+                                    <p className="text-white/60 text-xs sm:text-sm uppercase tracking-[0.3em] mt-2 font-medium">
                                         — {currentPhoto.senderName || 'Anonymous'}
                                     </p>
                                 </motion.div>
@@ -269,35 +272,40 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
                 </AnimatePresence>
             </div>
 
-            {/* ── "New Photo" indicator ── */}
-            {isNewPhoto && (
-                <motion.div
-                    initial={{ scale: 0, rotate: -10 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    className="absolute top-4 right-4 sm:top-10 sm:right-10 bg-amber-500 text-black px-3 sm:px-6 py-1 sm:py-2 text-sm sm:text-xl font-bold rounded-full shadow-lg z-30 border-2 sm:border-4 border-white"
-                >
-                    🎉 NEW!
-                </motion.div>
-            )}
-
-            {/* ── QR Code Overlay ── */}
-            <div className="absolute bottom-3 right-3 sm:bottom-6 sm:right-6 bg-white/95 backdrop-blur p-2 sm:p-3 rounded-xl shadow-2xl z-50 flex flex-col items-center gap-1">
-                <QRCodeSVG value={uploadUrl} size={64} className="sm:hidden" />
-                <QRCodeSVG value={uploadUrl} size={100} className="hidden sm:block" />
-                <p className="text-black font-bold text-[9px] sm:text-xs tracking-wider">{eventSlug}</p>
-            </div>
+            {/* ── "New Photo" Indicator (No Emoji, Premium) ── */}
+            <AnimatePresence>
+                {isNewPhoto && (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.8, y: -20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.8, y: -20 }}
+                        className="absolute top-6 right-6 sm:top-12 sm:right-12 bg-white text-black px-4 sm:px-6 py-2 sm:py-3 rounded-full shadow-2xl z-30 flex items-center gap-2 border border-white/20"
+                    >
+                        <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" />
+                        <span className="text-xs sm:text-sm font-bold uppercase tracking-widest">New Arrival</span>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* ── Title & Status Overlay ── */}
-            <div className="absolute top-3 left-3 sm:top-6 sm:left-6 z-50 flex items-center gap-2 sm:gap-3">
-                <h1 className="text-white/70 text-sm sm:text-2xl font-bold drop-shadow-lg tracking-wide">
-                    {eventSlug.toUpperCase().replace(/-/g, ' ')}
+            <div className="absolute top-6 left-6 sm:top-12 sm:left-12 z-50 flex items-center gap-4">
+                <div className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ${isConnected ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]'}`} />
+                <h1 className="text-white/70 text-xs sm:text-sm font-medium tracking-[0.3em] uppercase">
+                    {eventSlug.replace(/-/g, ' ')}
                 </h1>
-                <div className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-yellow-500 animate-pulse'}`} />
             </div>
 
-            {/* ── Photo Counter ── */}
-            <div className="absolute top-3 right-3 sm:top-6 sm:right-6 z-50 text-white/40 text-[10px] sm:text-xs font-medium">
-                {currentIndex + 1} / {photos.length}
+            {/* ── Photo Counter (Moved to Bottom Left) ── */}
+            <div className="absolute bottom-6 left-6 sm:bottom-12 sm:left-12 z-50">
+                <span className="text-white/40 text-xs sm:text-sm font-medium tracking-[0.2em]">
+                    {String(currentIndex + 1).padStart(2, '0')} / {String(photos.length).padStart(2, '0')}
+                </span>
+            </div>
+
+            {/* ── Floating QR Code (Bottom Right) ── */}
+            <div className="absolute bottom-6 right-6 sm:bottom-12 sm:right-12 bg-white/5 backdrop-blur-xl border border-white/10 p-4 rounded-2xl shadow-2xl z-50 flex flex-col items-center gap-3 hover:bg-white/10 transition-colors">
+                <QRCodeSVG value={uploadUrl} size={90} className="rounded-xl opacity-90 mix-blend-screen" fgColor="#fff" bgColor="transparent" />
+                <p className="text-white/70 font-semibold text-[10px] tracking-[0.15em] uppercase">Scan to Upload</p>
             </div>
         </div>
     );

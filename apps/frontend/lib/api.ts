@@ -6,6 +6,7 @@ import axios, { AxiosError, AxiosInstance } from 'axios';
 import {
     Photo,
     Event,
+    EventWithCounts,
     CreatePhotoRequest,
     PhotoStatus,
 } from './types';
@@ -99,6 +100,11 @@ export async function updatePhotoStatus(
 // Admin API
 // ============================================
 
+export async function getEventBySlug(slug: string): Promise<Event> {
+    const response = await api.get<Event>(`/api/events/${slug}`);
+    return response.data;
+}
+
 export async function getAdminPhotos(slug: string): Promise<Photo[]> {
     const response = await api.get<Photo[]>(`/api/admin/event/${slug}/photos`);
     return response.data;
@@ -111,6 +117,25 @@ export async function getEventStats(slug: string): Promise<{
 }> {
     const response = await api.get(`/api/admin/event/${slug}/stats`);
     return response.data;
+}
+
+export async function getAdminEvents(): Promise<EventWithCounts[]> {
+    const response = await api.get<EventWithCounts[]>('/api/admin/events');
+    return response.data;
+}
+
+export async function createAdminEvent(data: { name: string; slug: string }): Promise<Event> {
+    const response = await api.post<Event>('/api/admin/events', data);
+    return response.data;
+}
+
+export async function updateAdminEvent(slug: string, data: { name: string }): Promise<Event> {
+    const response = await api.patch<Event>(`/api/admin/events/${slug}`, data);
+    return response.data;
+}
+
+export async function deleteAdminEvent(slug: string): Promise<void> {
+    await api.delete(`/api/admin/events/${slug}`);
 }
 
 // ============================================
