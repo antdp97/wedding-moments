@@ -15,7 +15,7 @@ async function bootstrap() {
 
   // Enable CORS for frontend
   app.enableCors({
-    origin: ['http://localhost:3000', 'http://localhost:3001', 'http://192.168.1.8:3000', 'https://wedding-moments-fe.vercel.app'],
+    origin: ['http://localhost:3000', 'http://localhost:3001', 'http://192.168.1.8:3000', 'https://wedding-moments-fe.vercel.app', 'https://wedding-moments-fe-git-master-phucan97work-3462s-projects.vercel.app'],
     credentials: true,
   });
 
