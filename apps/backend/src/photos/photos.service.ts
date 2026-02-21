@@ -259,11 +259,17 @@ export class PhotosService {
     }
 
     async getActiveBackground(eventSlug: string) {
-        const event = await this.prisma.event.findUnique({ where: { slug: eventSlug } });
-        if (!event) throw new NotFoundException(`Event with slug ${eventSlug} not found`);
+        try {
+            const event = await this.prisma.event.findUnique({ where: { slug: eventSlug } });
+            if (!event) throw new NotFoundException(`Event with slug ${eventSlug} not found`);
 
-        return this.prisma.backgroundImage.findFirst({
-            where: { eventId: event.id, isActive: true },
-        });
+            return this.prisma.backgroundImage.findFirst({
+                where: { eventId: event.id, isActive: true },
+            });
+        } catch (error) {
+            if (error instanceof NotFoundException) throw error;
+            console.error(`[BackgroundService] getActiveBackground failed for slug "${eventSlug}":`, error);
+            throw error;
+        }
     }
 }

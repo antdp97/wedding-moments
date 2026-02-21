@@ -15,6 +15,8 @@ import { Logger } from '@nestjs/common';
         origin: '*', // Configure for production
     },
     namespace: '/events',
+    transports: ['polling', 'websocket'],
+    allowUpgrades: true,
 })
 export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @WebSocketServer()
