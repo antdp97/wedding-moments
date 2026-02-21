@@ -12,9 +12,8 @@ import { Logger } from '@nestjs/common';
 
 @WebSocketGateway({
     cors: {
-        origin: '*', // Configure for production
+        origin: '*',
     },
-    namespace: '/events',
     transports: ['polling', 'websocket'],
     allowUpgrades: true,
 })
