@@ -3,7 +3,8 @@
 import { useEffect, useState, use } from "react";
 import GuestUploader from "@/components/GuestUploader";
 import { getEventBySlug } from "@/lib/api";
-import { Loader2 } from "lucide-react";
+import { Loader2, MonitorPlay } from "lucide-react";
+import Link from "next/link";
 
 export default function EventPage({ params }: { params: Promise<{ slug: string }> }) {
     const { slug } = use(params);
@@ -50,21 +51,29 @@ export default function EventPage({ params }: { params: Promise<{ slug: string }
     }
 
     return (
-        <main className="min-h-screen min-h-dvh bg-background flex flex-col items-center justify-center px-4 py-20 sm:p-4">
+        <main className="min-h-screen min-h-dvh bg-background flex flex-col items-center justify-center px-4 py-24 sm:p-4 relative overflow-hidden">
             {/* Top Brand Bar */}
-            <div className="fixed left-0 top-0 w-full z-50 flex justify-center border-b border-border bg-background/80 backdrop-blur-2xl px-4 py-3 sm:py-4">
-                <p className="font-bold text-primary text-lg tracking-wide">
+            <div className="fixed left-0 top-0 w-full z-50 flex items-center justify-between border-b border-border bg-background/80 backdrop-blur-2xl px-4 sm:px-8 py-4">
+                <p className="font-bold text-primary text-base sm:text-lg tracking-[0.2em] uppercase">
                     Wedding Memos
                 </p>
+                <Link
+                    href={`/live/${slug}`}
+                    className="flex items-center gap-2 text-xs sm:text-sm font-semibold tracking-wider uppercase text-primary/80 hover:text-primary bg-primary/5 hover:bg-primary/10 px-4 py-2 sm:px-5 sm:py-2.5 rounded-full backdrop-blur-md transition-all duration-300 border border-primary/10 hover:border-primary/20 active:scale-95"
+                >
+                    <MonitorPlay className="w-4 h-4 sm:w-4 sm:h-4" />
+                    <span className="hidden sm:inline">View Live Wall</span>
+                    <span className="sm:hidden">Live</span>
+                </Link>
             </div>
 
-            <div className="z-10 w-full max-w-md flex flex-col items-center gap-6 sm:gap-8 mt-12 sm:mt-0">
-                <div className="text-center space-y-3 sm:space-y-4">
-                    <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-primary">
-                        Welcome to the Party
+            <div className="z-10 w-full max-w-md flex flex-col items-center gap-8 sm:gap-10 mt-8 sm:mt-0">
+                <div className="text-center space-y-4 sm:space-y-5">
+                    <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tighter text-primary">
+                        Share Your<br />Moment
                     </h1>
-                    <p className="text-sm sm:text-base leading-7 text-muted-foreground">
-                        Snap a photo or video and see it on the big screen instantly.
+                    <p className="text-sm sm:text-base leading-relaxed text-muted-foreground font-light max-w-xs mx-auto">
+                        Snap a photo or video and join the celebration on the big screen instantly.
                     </p>
                 </div>
 

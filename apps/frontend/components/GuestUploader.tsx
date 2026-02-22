@@ -5,9 +5,10 @@ import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Upload, X, CheckCircle, Image as ImageIcon } from 'lucide-react';
+import { Upload, X, CheckCircle, Image as ImageIcon, Sparkles, MonitorPlay, Loader2 } from 'lucide-react';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { getPresignedUrl, uploadFile, savePhotoMetadata } from '@/lib/api';
 
@@ -75,15 +76,7 @@ export default function GuestUploader({ eventSlug, eventId }: GuestUploaderProps
       setSuccess(true);
       toast.success('Photo uploaded successfully!');
 
-      // Reset after success
-      setTimeout(() => {
-        setFile(null);
-        setSuccess(false);
-        setUploading(false);
-        setProgress(0);
-        setMessage('');
-        // Keep userName for convenience
-      }, 3000);
+      // Do NOT auto-reset. Let the user choose what to do next.
 
     } catch (error) {
       console.error('Upload failed:', error);
@@ -98,6 +91,14 @@ export default function GuestUploader({ eventSlug, eventId }: GuestUploaderProps
     setFile(null);
   };
 
+  const uploadAnother = () => {
+    setFile(null);
+    setSuccess(false);
+    setUploading(false);
+    setProgress(0);
+    setMessage('');
+  };
+
   return (
     <div className="w-full max-w-md mx-auto p-4">
       <Card className="border-2 border-border/50 bg-card/95 backdrop-blur shadow-lg">
@@ -107,106 +108,145 @@ export default function GuestUploader({ eventSlug, eventId }: GuestUploaderProps
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Dropzone */}
-          <div
-            {...getRootProps()}
-            className={`
-              relative border-2 border-dashed rounded-xl p-8 transition-all duration-300 cursor-pointer text-center
-              ${isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/30 hover:border-primary/50 hover:bg-muted'}
-              ${file ? 'border-success/50 bg-success/5' : ''}
-            `}
-          >
-            <input {...getInputProps()} />
 
-            {file ? (
-              <div className="flex flex-col items-center justify-center space-y-2">
-                <div className="relative w-full h-48 rounded-lg overflow-hidden bg-background">
-                  {file.type.startsWith('image/') ? (
-                    <img
-                      src={URL.createObjectURL(file)}
-                      alt="Preview"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-muted-foreground">
-                      <ImageIcon className="w-12 h-12" />
-                    </div>
-                  )}
-                  <button
-                    onClick={removeFile}
-                    className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full hover:bg-destructive transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+          {success ? (
+            <div className="flex flex-col items-center justify-center py-8 space-y-8 animate-in fade-in zoom-in duration-500">
+              <div className="relative">
+                <div className="absolute inset-0 bg-green-500/20 rounded-full blur-xl" />
+                <div className="w-20 h-20 bg-green-500/10 border border-green-500/30 rounded-full flex items-center justify-center relative">
+                  <CheckCircle className="w-10 h-10 text-green-600" />
                 </div>
-                <p className="text-sm font-medium truncate max-w-full px-2">{file.name}</p>
               </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center space-y-3 py-6">
-                <div className="p-4 bg-primary/10 rounded-full text-primary">
-                  <Upload className="w-8 h-8" />
+
+              <div className="text-center space-y-2">
+                <h2 className="text-2xl font-bold text-foreground tracking-tight">Sent to screen!</h2>
+                <p className="text-muted-foreground text-sm">Your moment is now live.</p>
+              </div>
+
+              <div className="flex flex-col w-full gap-3 mt-4">
+                <Button
+                  variant="outline"
+                  className="h-12 w-full rounded-xl transition-all font-semibold tracking-wide"
+                  onClick={uploadAnother}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload Another
+                </Button>
+                <Link href={`/live/${eventSlug}`} className="w-full">
+                  <Button
+                    className="h-12 w-full rounded-xl transition-all font-semibold tracking-wide shadow-md hover:shadow-lg"
+                  >
+                    <MonitorPlay className="w-4 h-4 mr-2" />
+                    View Live Wall
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6 relative">
+              {/* Dropzone */}
+              <div
+                {...getRootProps()}
+                className={`
+                relative border-2 border-dashed rounded-xl p-8 transition-all duration-300 cursor-pointer text-center
+                ${isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/30 hover:border-primary/50 hover:bg-muted'}
+                ${file ? 'border-success/50 bg-success/5' : ''}
+              `}
+              >
+                <input {...getInputProps()} />
+
+                {file ? (
+                  <div className="flex flex-col items-center justify-center space-y-3">
+                    <div className="relative w-full h-48 rounded-lg overflow-hidden bg-background">
+                      {file.type.startsWith('image/') ? (
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-muted-foreground">
+                          <ImageIcon className="w-12 h-12" />
+                        </div>
+                      )}
+                      <button
+                        onClick={removeFile}
+                        className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full hover:bg-destructive transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <p className="text-sm font-medium truncate max-w-full px-2">{file.name}</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center space-y-3 py-6">
+                    <div className="p-4 bg-primary/10 rounded-full text-primary">
+                      <Upload className="w-8 h-8" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-medium text-foreground">Tap to upload</p>
+                      <p className="text-xs text-muted-foreground">or drag and drop photo/video</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Form Fields */}
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label htmlFor="name" className="text-xs text-muted-foreground uppercase tracking-wider">Your Name (Optional)</Label>
+                  <Input
+                    id="name"
+                    placeholder="Guest"
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    className="bg-background/50 border-input/50 focus:border-primary"
+                  />
                 </div>
                 <div className="space-y-1">
-                  <p className="font-medium text-foreground">Tap to upload</p>
-                  <p className="text-xs text-muted-foreground">or drag and drop photo/video</p>
+                  <Label htmlFor="message" className="text-xs text-muted-foreground uppercase tracking-wider">Message (Optional)</Label>
+                  <Input
+                    id="message"
+                    placeholder="Congrats!"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    className="bg-background/50 border-input/50 focus:border-primary"
+                  />
                 </div>
               </div>
-            )}
-          </div>
 
-          {/* Form Fields */}
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label htmlFor="name" className="text-xs text-muted-foreground uppercase tracking-wider">Your Name (Optional)</Label>
-              <Input
-                id="name"
-                placeholder="Guest"
-                value={userName}
-                onChange={(e) => setUserName(e.target.value)}
-                className="bg-background/50 border-input/50 focus:border-primary"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="message" className="text-xs text-muted-foreground uppercase tracking-wider">Message (Optional)</Label>
-              <Input
-                id="message"
-                placeholder="Congrats!"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                className="bg-background/50 border-input/50 focus:border-primary"
-              />
-            </div>
-          </div>
+              {/* Progress */}
+              {uploading && (
+                <div className="space-y-1 animate-in fade-in slide-in-from-bottom-2">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Uploading...</span>
+                    <span>{progress}%</span>
+                  </div>
+                  <Progress value={progress} className="h-2" />
+                </div>
+              )}
 
-          {/* Progress */}
-          {uploading && (
-            <div className="space-y-1 animate-in fade-in slide-in-from-bottom-2">
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Uploading...</span>
-                <span>{progress}%</span>
-              </div>
-              <Progress value={progress} className="h-2" />
+              {/* Action */}
+              <Button
+                className="w-full text-lg font-medium h-12 shadow-lg hover:shadow-xl transition-all relative overflow-hidden group"
+                onClick={handleUpload}
+                disabled={!file || uploading || success}
+              >
+                {uploading ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Sending...
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5" />
+                    Send to Screen
+                  </span>
+                )}
+              </Button>
             </div>
           )}
-
-          {/* Success Message */}
-          {success && (
-            <div className="flex items-center justify-center text-green-600 gap-2 font-medium animate-in zoom-in">
-              <CheckCircle className="w-5 h-5" />
-              <span>Sent to LiveWall!</span>
-            </div>
-          )}
-
         </CardContent>
-        <CardFooter>
-          <Button
-            className="w-full text-lg font-medium h-12 shadow-lg hover:shadow-xl transition-all"
-            onClick={handleUpload}
-            disabled={!file || uploading || success}
-          >
-            {uploading ? 'Sending...' : success ? 'Uploaded' : 'Send to Screen'}
-          </Button>
-        </CardFooter>
       </Card>
     </div>
   );
