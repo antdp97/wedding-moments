@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Check, X, Shield, RefreshCw, Wifi, WifiOff, Trash2, Upload, ImageIcon, ArrowLeft, Plus, Calendar, Image as ImageLucide, Pencil } from 'lucide-react';
+import { Check, X, Shield, RefreshCw, Wifi, WifiOff, Trash2, Upload, ImageIcon, ArrowLeft, Plus, Calendar, Image as ImageLucide, Pencil, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
 import { Photo, PhotoStatus, BackgroundImage, EventWithCounts } from '@/lib/types';
 import {
@@ -15,6 +15,7 @@ import {
     getAdminEvents, createAdminEvent, updateAdminEvent, deleteAdminEvent
 } from '@/lib/api';
 import { useAdminSocket } from '@/hooks/useLiveWall';
+import { QRCodeModal } from './QRCodeModal';
 
 export default function AdminDashboard() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -43,6 +44,9 @@ export default function AdminDashboard() {
     // Background image state
     const [backgrounds, setBackgrounds] = useState<BackgroundImage[]>([]);
     const [bgUploading, setBgUploading] = useState(false);
+
+    // QR Code Modal
+    const [isQRModalOpen, setQRModalOpen] = useState(false);
 
     // WebSocket for real-time stats updates
     const handleStatUpdate = useCallback((newStats: { totalPhotos: number; pendingCount: number }) => {
@@ -545,7 +549,13 @@ export default function AdminDashboard() {
                             <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">
                                 {events.find(e => e.slug === selectedSlug)?.name || selectedSlug}
                             </h1>
-                            <p className="text-sm text-muted-foreground font-mono bg-muted/30 px-2 py-0.5 rounded inline-block mt-1">/{selectedSlug}</p>
+                            <div className="flex items-center gap-3 mt-1">
+                                <p className="text-sm text-muted-foreground font-mono bg-muted/30 px-2 py-0.5 rounded inline-block">/{selectedSlug}</p>
+                                <Button variant="outline" size="sm" onClick={() => setQRModalOpen(true)} className="h-7 text-xs px-2 gap-1.5 rounded-md text-primary hover:text-primary">
+                                    <QrCode className="w-3.5 h-3.5" />
+                                    Show QR
+                                </Button>
+                            </div>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -761,6 +771,16 @@ export default function AdminDashboard() {
                         )}
                     </CardContent>
                 </Card>
+
+                {/* QR Code Modal for Printing/Scanning */}
+                {selectedSlug && (
+                    <QRCodeModal
+                        isOpen={isQRModalOpen}
+                        onClose={() => setQRModalOpen(false)}
+                        url={`${typeof window !== 'undefined' ? window.location.origin : ''}/${selectedSlug}`}
+                        eventName={events.find(e => e.slug === selectedSlug)?.name || selectedSlug}
+                    />
+                )}
             </div>
         </div>
     );
