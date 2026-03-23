@@ -1,11 +1,12 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { EventsController } from './events.controller';
 import { EventsService } from './events.service';
-import { EventsGateway } from './events.gateway';
+import { SseController } from './sse.controller';
+import { SseEmitterService } from './sse-emitter.service';
 
 @Module({
-    controllers: [EventsController],
-    providers: [EventsService, EventsGateway],
-    exports: [EventsService, EventsGateway],
+    controllers: [EventsController, SseController],
+    providers: [EventsService, SseEmitterService],
+    exports: [EventsService, SseEmitterService],
 })
-export class EventsModule { }
+export class EventsModule {}

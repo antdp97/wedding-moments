@@ -2,13 +2,13 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePhotoDto, PhotoResponseDto } from '../dto';
 import { PhotoStatus } from '@prisma/client';
-import { EventsGateway } from '../events/events.gateway';
+import { SseEmitterService } from '../events/sse-emitter.service';
 
 @Injectable()
 export class PhotosService {
     constructor(
         private prisma: PrismaService,
-        private eventsGateway: EventsGateway,
+        private sseEmitter: SseEmitterService,
     ) { }
 
     async create(dto: CreatePhotoDto): Promise<PhotoResponseDto> {
@@ -45,7 +45,7 @@ export class PhotosService {
 
         // If auto-approved, emit WebSocket event immediately
         if (status === PhotoStatus.APPROVED) {
-            this.eventsGateway.emitPhotoApproved(event.slug, photo);
+            this.sseEmitter.emitPhotoApproved(event.slug, photo);
         }
 
         // Always emit admin stat update
@@ -84,10 +84,10 @@ export class PhotosService {
 
         // If newly approved, emit WebSocket event
         if (status === PhotoStatus.APPROVED) {
-            this.eventsGateway.emitPhotoApproved(photo.event.slug, photo);
+            this.sseEmitter.emitPhotoApproved(photo.event.slug, photo);
         } else if (status === PhotoStatus.REJECTED) {
             // If rejected, emit removal event to hide from live wall
-            this.eventsGateway.emitPhotoRemoved(photo.event.slug, photo.id);
+            this.sseEmitter.emitPhotoRemoved(photo.event.slug, photo.id);
         }
 
         // Emit admin stats update
@@ -117,7 +117,7 @@ export class PhotosService {
             }),
         ]);
 
-        this.eventsGateway.emitAdminStats(eventSlug, { totalPhotos, pendingCount });
+        this.sseEmitter.emitAdminStats(eventSlug, { totalPhotos, pendingCount });
     }
 
     async getAllBySlug(eventSlug: string): Promise<PhotoResponseDto[]> {
@@ -172,7 +172,7 @@ export class PhotosService {
         });
 
         // Emit removal event to live wall
-        this.eventsGateway.emitPhotoRemoved(photo.event.slug, photo.id);
+        this.sseEmitter.emitPhotoRemoved(photo.event.slug, photo.id);
 
         // Emit admin stats update
         await this.emitAdminStats(photo.event.slug);
@@ -223,7 +223,7 @@ export class PhotosService {
         });
 
         // Emit to Live Wall
-        this.eventsGateway.emitBackgroundChanged(bg.event.slug, updated.url);
+        this.sseEmitter.emitBackgroundChanged(bg.event.slug, updated.url);
 
         return updated;
     }
@@ -238,7 +238,7 @@ export class PhotosService {
         });
 
         // Emit null to revert to default gradient
-        this.eventsGateway.emitBackgroundChanged(eventSlug, null);
+        this.sseEmitter.emitBackgroundChanged(eventSlug, null);
     }
 
     async deleteBackground(backgroundId: string) {
@@ -252,7 +252,7 @@ export class PhotosService {
 
         // If the deleted bg was active, notify Live Wall to revert
         if (bg.isActive) {
-            this.eventsGateway.emitBackgroundChanged(bg.event.slug, null);
+            this.sseEmitter.emitBackgroundChanged(bg.event.slug, null);
         }
 
         return bg;
