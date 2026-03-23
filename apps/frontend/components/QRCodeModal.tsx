@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { X, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface QRCodeModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface QRCodeModalProps {
 }
 
 export function QRCodeModal({ isOpen, onClose, url, eventName }: QRCodeModalProps) {
+  const { t } = useLanguage();
   const handlePrint = () => {
     const svgContent = document.getElementById('qr-svg-wrapper')?.innerHTML;
     if (!svgContent) return;
@@ -87,7 +89,7 @@ export function QRCodeModal({ isOpen, onClose, url, eventName }: QRCodeModalProp
         <body>
           <div class="content-box">
              <h2>${eventName}</h2>
-             <p class="scan">Scan to Upload Photos</p>
+             <p class="scan">${t('scan_to_upload_photos')}</p>
              <div class="svg-container">
                ${svgContent}
              </div>
@@ -140,7 +142,7 @@ export function QRCodeModal({ isOpen, onClose, url, eventName }: QRCodeModalProp
             
             <div className="text-center space-y-2 mt-4">
               <h2 className="text-2xl font-bold text-gray-900">{eventName}</h2>
-              <p className="text-sm text-gray-500 font-medium tracking-wide uppercase">Scan to Upload Photos</p>
+              <p className="text-sm text-gray-500 font-medium tracking-wide uppercase">{t('scan_to_upload_photos')}</p>
             </div>
 
             <div id="qr-svg-wrapper" className="bg-white p-4 rounded-2xl shadow-inner border border-gray-100 flex items-center justify-center">
@@ -163,7 +165,7 @@ export function QRCodeModal({ isOpen, onClose, url, eventName }: QRCodeModalProp
                 size="lg"
             >
               <Printer className="w-4 h-4" />
-              Print QR Code
+              {t('print_qr_code')}
             </Button>
           </motion.div>
         </>

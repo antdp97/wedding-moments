@@ -16,10 +16,13 @@ import {
 } from '@/lib/api';
 import { useAdminSocket } from '@/hooks/useLiveWall';
 import { QRCodeModal } from './QRCodeModal';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { LanguageToggle } from '@/components/LanguageToggle';
 
 export default function AdminDashboard() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [password, setPassword] = useState('');
+    const { t } = useLanguage();
 
     // ─── Event Management State ───
     const [events, setEvents] = useState<EventWithCounts[]>([]);
@@ -332,15 +335,18 @@ export default function AdminDashboard() {
 
     if (!selectedSlug) {
         return (
-            <div className="min-h-screen min-h-dvh bg-background p-4 sm:p-6 lg:p-8">
+            <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
                 <div className="max-w-6xl mx-auto space-y-8">
                     {/* Header */}
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <h1 className="text-2xl sm:text-4xl font-extrabold text-foreground tracking-tight">Wedding Memos</h1>
-                            <p className="text-sm sm:text-base text-muted-foreground mt-1">Select an event to manage or create a new one</p>
+                        <div className="flex items-center gap-4">
+                            <div>
+                                <h1 className="text-2xl sm:text-4xl font-extrabold text-foreground tracking-tight">{t('app_title')}</h1>
+                                <p className="text-sm sm:text-base text-muted-foreground mt-1">Select an event to manage or create a new one</p>
+                            </div>
                         </div>
                         <div className="flex items-center gap-3">
+                            <LanguageToggle />
                             <Button variant="outline" size="sm" onClick={handleRefresh} className="shadow-sm hover:bg-muted/50 transition-colors">
                                 <RefreshCw className="w-4 h-4 mr-2" />
                                 Refresh
@@ -559,6 +565,7 @@ export default function AdminDashboard() {
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
+                        <LanguageToggle />
                         <div className="flex items-center gap-2 bg-background border px-4 py-2 rounded-full text-sm font-semibold shadow-sm">
                             {isConnected ? (
                                 <><Wifi className="w-4 h-4 text-green-500" /><span className="text-green-600 dark:text-green-400">Live</span></>

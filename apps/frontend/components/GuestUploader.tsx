@@ -11,6 +11,7 @@ import { Upload, X, CheckCircle, Image as ImageIcon, Sparkles, MonitorPlay, Load
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { getPresignedUrl, uploadFile, savePhotoMetadata } from '@/lib/api';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface GuestUploaderProps {
   eventSlug?: string;
@@ -24,6 +25,8 @@ export default function GuestUploader({ eventSlug, eventId }: GuestUploaderProps
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [success, setSuccess] = useState(false);
+
+  const { t } = useLanguage();
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles?.length > 0) {
@@ -74,13 +77,13 @@ export default function GuestUploader({ eventSlug, eventId }: GuestUploaderProps
       setProgress(100);
 
       setSuccess(true);
-      toast.success('Photo uploaded successfully!');
+      toast.success(t('upload_success'));
 
       // Do NOT auto-reset. Let the user choose what to do next.
 
     } catch (error) {
       console.error('Upload failed:', error);
-      toast.error('Upload failed. Please try again.');
+      toast.error(t('upload_error'));
       setUploading(false);
       setProgress(0);
     }
@@ -104,7 +107,7 @@ export default function GuestUploader({ eventSlug, eventId }: GuestUploaderProps
       <Card className="border-2 border-border/50 bg-card/95 backdrop-blur shadow-lg">
         <CardHeader>
           <CardTitle className="text-center text-primary text-xl font-bold">
-            Share Your Moment
+            {t('upload_photo_title')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -130,14 +133,14 @@ export default function GuestUploader({ eventSlug, eventId }: GuestUploaderProps
                   onClick={uploadAnother}
                 >
                   <Upload className="w-4 h-4 mr-2" />
-                  Upload Another
+                  {t('upload_another')}
                 </Button>
                 <Link href={`/live/${eventSlug}`} className="w-full">
                   <Button
                     className="h-12 w-full rounded-xl transition-all font-semibold tracking-wide shadow-md hover:shadow-lg"
                   >
                     <MonitorPlay className="w-4 h-4 mr-2" />
-                    View Live Wall
+                    {t('view_live_wall')}
                   </Button>
                 </Link>
               </div>
@@ -184,8 +187,8 @@ export default function GuestUploader({ eventSlug, eventId }: GuestUploaderProps
                       <Upload className="w-8 h-8" />
                     </div>
                     <div className="space-y-1">
-                      <p className="font-medium text-foreground">Tap to upload</p>
-                      <p className="text-xs text-muted-foreground">or drag and drop photo/video</p>
+                      <p className="font-medium text-foreground">{t('drag_text')}</p>
+                      <p className="text-xs text-muted-foreground">{t('drag_drop_text')}</p>
                     </div>
                   </div>
                 )}
@@ -194,23 +197,23 @@ export default function GuestUploader({ eventSlug, eventId }: GuestUploaderProps
               {/* Form Fields */}
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <Label htmlFor="name" className="text-xs text-muted-foreground uppercase tracking-wider">Your Name (Optional)</Label>
+                  <Label htmlFor="name" className="text-xs text-muted-foreground uppercase tracking-wider">{t('your_name')}</Label>
                   <Input
                     id="name"
-                    placeholder="Guest"
+                    placeholder={t('name_placeholder')}
                     value={userName}
                     onChange={(e) => setUserName(e.target.value)}
-                    className="bg-background/50 border-input/50 focus:border-primary"
+                    className="bg-background/50 border-input/50 focus:border-primary placeholder-opacity-50"
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="message" className="text-xs text-muted-foreground uppercase tracking-wider">Message (Optional)</Label>
+                  <Label htmlFor="message" className="text-xs text-muted-foreground uppercase tracking-wider">{t('your_message')}</Label>
                   <Input
                     id="message"
-                    placeholder="Congrats!"
+                    placeholder={t('message_placeholder')}
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    className="bg-background/50 border-input/50 focus:border-primary"
+                    className="bg-background/50 border-input/50 focus:border-primary placeholder-opacity-50"
                   />
                 </div>
               </div>
@@ -219,7 +222,7 @@ export default function GuestUploader({ eventSlug, eventId }: GuestUploaderProps
               {uploading && (
                 <div className="space-y-1 animate-in fade-in slide-in-from-bottom-2">
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Uploading...</span>
+                    <span>{t('uploading')}</span>
                     <span>{progress}%</span>
                   </div>
                   <Progress value={progress} className="h-2" />
@@ -235,12 +238,12 @@ export default function GuestUploader({ eventSlug, eventId }: GuestUploaderProps
                 {uploading ? (
                   <span className="flex items-center gap-2">
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    Sending...
+                    {t('uploading')}
                   </span>
                 ) : (
                   <span className="flex items-center gap-2">
                     <Sparkles className="w-5 h-5" />
-                    Send to Screen
+                    {t('upload_cta')}
                   </span>
                 )}
               </Button>

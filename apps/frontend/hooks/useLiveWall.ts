@@ -1,12 +1,14 @@
 /**
- * Custom WebSocket hook for Live Wall real-time updates
+ * Custom SSE hooks for Live Wall and Admin real-time updates
+ * Migrated from Socket.io to native EventSource (Server-Sent Events)
  */
 'use client';
 
-import { useEffect, useRef, useCallback, useState } from 'react';
-import { io, Socket } from 'socket.io-client';
+import { useEffect, useRef, useState } from 'react';
 import { Photo } from '@/lib/types';
 import { API_BASE_URL } from '@/lib/api';
+
+// ─── Live Wall Hook (Slideshow) ───
 
 interface UseLiveWallOptions {
     eventSlug: string;
@@ -26,11 +28,10 @@ export function useLiveWall({
     onPhotoRemoved,
     onBackgroundChanged,
 }: UseLiveWallOptions): UseLiveWallReturn {
-    const socketRef = useRef<Socket | null>(null);
     const [isConnected, setIsConnected] = useState(false);
     const [connectionError, setConnectionError] = useState<string | null>(null);
 
-    // Stable callback refs
+    // Stable callback refs to avoid re-subscribing
     const onPhotoApprovedRef = useRef(onPhotoApproved);
     const onPhotoRemovedRef = useRef(onPhotoRemoved);
     const onBackgroundChangedRef = useRef(onBackgroundChanged);
@@ -50,83 +51,73 @@ export function useLiveWall({
     useEffect(() => {
         if (!eventSlug) return;
 
-        // Initialize socket connection (default namespace)
-        const socket = io(API_BASE_URL, {
-            transports: ['polling', 'websocket'],
-            upgrade: true,
-            reconnection: true,
-            reconnectionAttempts: 10,
-            reconnectionDelay: 1000,
-            reconnectionDelayMax: 5000,
-            timeout: 20000,
-        });
+        const es = new EventSource(
+            `${API_BASE_URL}/api/stream/event/${eventSlug}`,
+        );
 
-        socketRef.current = socket;
-
-        // Connection handlers
-        socket.on('connect', () => {
-            console.log('[WebSocket] Connected:', socket.id);
+        es.onopen = () => {
+            console.log('[SSE] Connected to event stream:', eventSlug);
             setIsConnected(true);
             setConnectionError(null);
+        };
 
-            // Join the event room
-            socket.emit('join_event', { eventSlug });
-        });
+        es.onmessage = (event) => {
+            try {
+                const { type, payload } = JSON.parse(event.data);
 
-        socket.on('disconnect', (reason) => {
-            console.log('[WebSocket] Disconnected:', reason);
+                switch (type) {
+                    case 'photo_approved':
+                        console.log('[SSE] Photo approved:', payload.id);
+                        onPhotoApprovedRef.current?.(payload);
+                        break;
+                    case 'photo_removed':
+                        console.log('[SSE] Photo removed:', payload.id);
+                        onPhotoRemovedRef.current?.(payload.id);
+                        break;
+                    case 'background_changed':
+                        console.log('[SSE] Background changed:', payload.url);
+                        onBackgroundChangedRef.current?.(payload.url);
+                        break;
+                    case 'heartbeat':
+                        break; // Silently ignore
+                }
+            } catch (err) {
+                console.error('[SSE] Failed to parse:', err);
+            }
+        };
+
+        es.onerror = () => {
+            console.warn(
+                '[SSE] Connection error — browser will auto-reconnect',
+            );
             setIsConnected(false);
-        });
+            setConnectionError('Stream disconnected');
+            // EventSource auto-reconnects after ~3 seconds by default
+        };
 
-        socket.on('connect_error', (error) => {
-            console.error('[WebSocket] Connection error:', error.message);
-            setConnectionError(error.message);
-            setIsConnected(false);
-        });
-
-        // Listen for new approved photos
-        socket.on('photo_approved', (photo: Photo) => {
-            console.log('[WebSocket] New photo approved:', photo.id);
-            onPhotoApprovedRef.current?.(photo);
-        });
-
-        // Listen for photo removals (rejections/deletions)
-        socket.on('photo_removed', ({ id }: { id: string }) => {
-            console.log('[WebSocket] Photo removed:', id);
-            onPhotoRemovedRef.current?.(id);
-        });
-
-        // Listen for background changes
-        socket.on('background_changed', ({ url }: { url: string | null }) => {
-            console.log('[WebSocket] Background changed:', url);
-            onBackgroundChangedRef.current?.(url);
-        });
-
-        // Cleanup on unmount
         return () => {
-            console.log('[WebSocket] Cleaning up connection');
-            socket.disconnect();
-            socketRef.current = null;
+            console.log('[SSE] Closing connection');
+            es.close();
         };
     }, [eventSlug]);
 
     return { isConnected, connectionError };
 }
 
-// ============================================
-// Admin Dashboard Hook
-// ============================================
+// ─── Admin Dashboard Hook ───
 
 interface UseAdminSocketOptions {
     eventSlug: string;
-    onStatUpdate?: (stats: { totalPhotos: number; pendingCount: number }) => void;
+    onStatUpdate?: (stats: {
+        totalPhotos: number;
+        pendingCount: number;
+    }) => void;
 }
 
 export function useAdminSocket({
     eventSlug,
     onStatUpdate,
 }: UseAdminSocketOptions) {
-    const socketRef = useRef<Socket | null>(null);
     const [isConnected, setIsConnected] = useState(false);
 
     const onStatUpdateRef = useRef(onStatUpdate);
@@ -137,35 +128,28 @@ export function useAdminSocket({
     useEffect(() => {
         if (!eventSlug) return;
 
-        const socket = io(API_BASE_URL, {
-            transports: ['polling', 'websocket'],
-            upgrade: true,
-            timeout: 20000,
-        });
+        const es = new EventSource(
+            `${API_BASE_URL}/api/stream/admin/${eventSlug}`,
+        );
 
-        socketRef.current = socket;
+        es.onopen = () => setIsConnected(true);
 
-        socket.on('connect', () => {
-            setIsConnected(true);
-            socket.emit('join_admin', { eventSlug });
-        });
+        es.onmessage = (event) => {
+            try {
+                const { type, payload } = JSON.parse(event.data);
 
-        socket.on('disconnect', () => {
-            setIsConnected(false);
-        });
-
-        socket.on('admin_stat_update', (stats) => {
-            onStatUpdateRef.current?.(stats);
-        });
-
-        // Also listen for photo_approved in admin view
-        socket.on('photo_approved', () => {
-            // Could trigger a refresh of the photo list
-        });
-
-        return () => {
-            socket.disconnect();
+                if (type === 'admin_stat_update') {
+                    onStatUpdateRef.current?.(payload);
+                }
+                // 'photo_approved' also arrives here, could trigger list refresh
+            } catch (err) {
+                console.error('[SSE Admin] Parse error:', err);
+            }
         };
+
+        es.onerror = () => setIsConnected(false);
+
+        return () => es.close();
     }, [eventSlug]);
 
     return { isConnected };

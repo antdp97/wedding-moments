@@ -12,6 +12,7 @@ interface LiveWallProps {
 }
 
 import { Sparkles, Image as ImageIcon, Maximize, Minimize } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // ... (other imports)
 
@@ -20,6 +21,7 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isNewPhoto, setIsNewPhoto] = useState(false);
     const [loading, setLoading] = useState(true);
+    const { t } = useLanguage();
 
     // Track user motion preference for accessibility
     const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
@@ -157,7 +159,7 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
             <div className="w-full h-screen h-dvh bg-black flex items-center justify-center">
                 <div className="text-white/50 flex flex-col items-center gap-4">
                     <ImageIcon className="w-8 h-8 animate-pulse text-white/30" />
-                    <span className="text-sm uppercase tracking-widest font-medium">Entering Live Wall</span>
+                    <span className="text-sm uppercase tracking-widest font-medium">{t('entering_live_wall')}</span>
                 </div>
             </div>
         );
@@ -170,10 +172,10 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
                 <div className="absolute inset-0 bg-[url('/noise.png')] opacity-20 mix-blend-overlay pointer-events-none" />
                 <div className="text-center space-y-8 px-4 z-10">
                     <h1 className="text-white text-3xl sm:text-5xl font-bold tracking-tight">
-                        Experience Awaits
+                        {t('experience_awaits')}
                     </h1>
                     <p className="text-gray-400 text-base sm:text-lg max-w-md mx-auto">
-                        Be the first to shape the story. Scan the code below to upload a moment.
+                        {t('be_first')}
                     </p>
                 </div>
                 {/* Minimalist QR Card */}
@@ -301,7 +303,7 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
                         className="absolute top-6 right-6 sm:top-12 sm:right-12 bg-white text-black px-4 sm:px-6 py-2 sm:py-3 rounded-full shadow-2xl z-30 flex items-center gap-2 border border-white/20"
                     >
                         <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" />
-                        <span className="text-xs sm:text-sm font-bold uppercase tracking-widest">New Arrival</span>
+                        <span className="text-xs sm:text-sm font-bold uppercase tracking-widest">{t('new_arrival')}</span>
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -339,7 +341,7 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
             {/* ── Floating QR Code (Bottom Right) ── */}
             <div className="absolute bottom-6 right-6 sm:bottom-12 sm:right-12 bg-white/5 backdrop-blur-xl border border-white/10 p-4 rounded-2xl shadow-2xl z-50 flex flex-col items-center gap-3 hover:bg-white/10 transition-colors">
                 <QRCodeSVG value={uploadUrl} size={90} className="rounded-xl opacity-90 mix-blend-screen" fgColor="#fff" bgColor="transparent" />
-                <p className="text-white/70 font-semibold text-[10px] tracking-[0.15em] uppercase">Scan to Upload</p>
+                <p className="text-white/70 font-semibold text-[10px] tracking-[0.15em] uppercase">{t('scan_upload')}</p>
             </div>
         </div>
     );
