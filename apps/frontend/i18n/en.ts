@@ -5,6 +5,9 @@ export const en: Translations = {
   admin_dashboard: "Admin Dashboard",
   live_wall: "Live Wall",
 
+  guest_title1: "Moments",
+  guest_title2: "alive 💍",
+  upload_cta: 'Share the moment 🥳',
   upload_photo_title: "Share your moments",
   upload_photo_desc: "Take a photo or upload from your gallery.",
   drag_drop_text: "Tap and share the moment",
@@ -70,4 +73,5 @@ export const en: Translations = {
   theme_dark: "Dark Theme",
   theme_system: "System",
   language: "Language",
+
 };
