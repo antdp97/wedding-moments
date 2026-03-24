@@ -11,16 +11,15 @@ interface LiveWallProps {
     eventSlug: string;
 }
 
-import { Sparkles, Image as ImageIcon, Maximize, Minimize } from 'lucide-react';
+import { Sparkles, Image as ImageIcon, Maximize, Minimize, QrCode, X } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
-
-// ... (other imports)
 
 export default function LiveWall({ eventSlug }: LiveWallProps) {
     const [photos, setPhotos] = useState<Photo[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isNewPhoto, setIsNewPhoto] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [qrModalOpen, setQrModalOpen] = useState(false);
     const { t } = useLanguage();
 
     // Track user motion preference for accessibility
@@ -153,6 +152,56 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
 
     const uploadUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/${eventSlug}`;
 
+    // ─── QR Modal (shared between empty-state and main wall) ───
+    const qrModal = (
+        <AnimatePresence>
+            {qrModalOpen && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className="fixed inset-0 z-100 flex items-center justify-center bg-black/80 backdrop-blur-md"
+                    onClick={() => setQrModalOpen(false)}
+                >
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.85 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.85 }}
+                        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                        className="relative bg-white/10 backdrop-blur-2xl border border-white/20 p-8 sm:p-10 rounded-3xl shadow-[0_40px_80px_-20px_rgba(0,0,0,0.6)] flex flex-col items-center gap-5 max-w-xs mx-4"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Close button */}
+                        <button
+                            onClick={() => setQrModalOpen(false)}
+                            className="absolute top-3 right-3 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-colors"
+                            aria-label="Close QR code"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+
+                        <QRCodeSVG
+                            value={uploadUrl}
+                            size={200}
+                            className="rounded-2xl"
+                            fgColor="#ffffff"
+                            bgColor="transparent"
+                        />
+                        <div className="text-center space-y-1">
+                            <p className="text-white font-semibold text-sm tracking-[0.15em] uppercase">
+                                {t('scan_upload')}
+                            </p>
+                            <p className="text-white/50 text-xs tracking-wider">
+                                {eventSlug}
+                            </p>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+    );
+
     // ─── Loading ───
     if (loading) {
         return (
@@ -178,11 +227,23 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
                         {t('be_first')}
                     </p>
                 </div>
-                {/* Minimalist QR Card */}
-                <div className="absolute bottom-8 sm:bottom-12 bg-white/5 backdrop-blur-xl border border-white/10 p-6 rounded-3xl shadow-2xl z-50 flex flex-col items-center gap-4 hover:bg-white/10 transition-colors">
+
+                {/* Mobile: small pill button — tap to open QR modal */}
+                <button
+                    onClick={() => setQrModalOpen(true)}
+                    className="sm:hidden absolute bottom-8 bg-white/10 backdrop-blur-xl border border-white/15 px-5 py-3 rounded-full shadow-xl z-50 flex items-center gap-2.5 hover:bg-white/15 active:scale-95 transition-all"
+                >
+                    <QrCode className="w-5 h-5 text-white/80" />
+                    <span className="text-white/80 font-semibold text-xs tracking-[0.15em] uppercase">{t('scan_upload')}</span>
+                </button>
+
+                {/* Desktop: full QR card */}
+                <div className="hidden sm:flex absolute bottom-12 bg-white/5 backdrop-blur-xl border border-white/10 p-6 rounded-3xl shadow-2xl z-50 flex-col items-center gap-4 hover:bg-white/10 transition-colors">
                     <QRCodeSVG value={uploadUrl} size={140} className="rounded-xl opacity-90 mix-blend-screen" fgColor="#fff" bgColor="transparent" />
                     <p className="text-white/70 font-semibold text-xs tracking-[0.2em] uppercase">{eventSlug}</p>
                 </div>
+
+                {qrModal}
             </div>
         );
     }
@@ -331,18 +392,31 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
                 </button>
             </div>
 
-            {/* ── Photo Counter (Moved to Bottom Left) ── */}
+            {/* ── Photo Counter (Bottom Left) ── */}
             <div className="absolute bottom-6 left-6 sm:bottom-12 sm:left-12 z-50">
                 <span className="text-white/40 text-xs sm:text-sm font-medium tracking-[0.2em]">
                     {String(currentIndex + 1).padStart(2, '0')} / {String(photos.length).padStart(2, '0')}
                 </span>
             </div>
 
-            {/* ── Floating QR Code (Bottom Right) ── */}
-            <div className="absolute bottom-6 right-6 sm:bottom-12 sm:right-12 bg-white/5 backdrop-blur-xl border border-white/10 p-4 rounded-2xl shadow-2xl z-50 flex flex-col items-center gap-3 hover:bg-white/10 transition-colors">
+            {/* ── QR Code (Bottom Right) ── */}
+            {/* Mobile: compact pill button — tap opens modal */}
+            <button
+                onClick={() => setQrModalOpen(true)}
+                className="sm:hidden absolute bottom-6 right-6 bg-white/10 backdrop-blur-xl border border-white/15 px-4 py-2.5 rounded-full shadow-xl z-50 flex items-center gap-2 hover:bg-white/15 active:scale-95 transition-all"
+                aria-label="Show QR code"
+            >
+                <QrCode className="w-4 h-4 text-white/80" />
+                <span className="text-white/70 font-semibold text-[10px] tracking-[0.12em] uppercase">QR</span>
+            </button>
+
+            {/* Desktop: full floating QR card */}
+            <div className="hidden sm:flex absolute bottom-12 right-12 bg-white/5 backdrop-blur-xl border border-white/10 p-4 rounded-2xl shadow-2xl z-50 flex-col items-center gap-3 hover:bg-white/10 transition-colors">
                 <QRCodeSVG value={uploadUrl} size={90} className="rounded-xl opacity-90 mix-blend-screen" fgColor="#fff" bgColor="transparent" />
                 <p className="text-white/70 font-semibold text-[10px] tracking-[0.15em] uppercase">{t('scan_upload')}</p>
             </div>
+
+            {qrModal}
         </div>
     );
 }
