@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Check, X, Shield, RefreshCw, Wifi, WifiOff, Trash2, Upload, ImageIcon, ArrowLeft, Plus, Calendar, Image as ImageLucide, Pencil, QrCode } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { Photo, PhotoStatus, BackgroundImage, EventWithCounts } from '@/lib/types';
 import {
@@ -185,7 +186,7 @@ export default function AdminDashboard() {
 
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
-        if (password === 'admin') {
+        if (password === 'TnuRosy2803!') {
             setIsAuthenticated(true);
             toast.success('Welcome back, Host!');
         } else {
@@ -444,10 +445,21 @@ export default function AdminDashboard() {
                         </Card>
                     )}
 
-                    {/* Loading */}
+                    {/* Loading — skeleton event cards */}
                     {eventsLoading && (
-                        <div className="flex items-center justify-center py-24">
-                            <RefreshCw className="w-10 h-10 animate-spin text-muted-foreground/30" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                            {Array.from({ length: 3 }).map((_, i) => (
+                                <div key={i} className="rounded-2xl border border-border/40 bg-card p-6 space-y-4 shadow-sm">
+                                    <div className="space-y-2">
+                                        <Skeleton className="h-6 w-3/4" />
+                                        <Skeleton className="h-4 w-24 rounded-full" />
+                                    </div>
+                                    <div className="flex items-center justify-between pt-1">
+                                        <Skeleton className="h-4 w-20" />
+                                        <Skeleton className="h-4 w-16" />
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     )}
 
@@ -586,38 +598,31 @@ export default function AdminDashboard() {
                         <div className="h-1 w-full bg-blue-500/20 group-hover:bg-blue-500/40 transition-colors" />
                         <CardHeader className="p-4 sm:p-6">
                             <CardDescription className="text-xs sm:text-sm font-medium uppercase tracking-wider">Total Uploads</CardDescription>
-                            <CardTitle className="text-3xl sm:text-5xl font-black">{stats.totalPhotos}</CardTitle>
+                            {loading ? <Skeleton className="h-10 w-16 mt-1" /> : <CardTitle className="text-3xl sm:text-5xl font-black">{stats.totalPhotos}</CardTitle>}
                         </CardHeader>
                     </Card>
                     <Card className="border-border/40 shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
                         <div className="h-1 w-full bg-yellow-500/20 group-hover:bg-yellow-500/40 transition-colors" />
                         <CardHeader className="p-4 sm:p-6">
                             <CardDescription className="text-xs sm:text-sm font-medium uppercase tracking-wider">Pending Review</CardDescription>
-                            <CardTitle className="text-3xl sm:text-5xl font-black text-yellow-600 dark:text-yellow-500">
-                                {stats.pendingCount}
-                            </CardTitle>
+                            {loading ? <Skeleton className="h-10 w-12 mt-1" /> : <CardTitle className="text-3xl sm:text-5xl font-black text-yellow-600 dark:text-yellow-500">{stats.pendingCount}</CardTitle>}
                         </CardHeader>
                     </Card>
                     <Card className="border-border/40 shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
                         <div className="h-1 w-full bg-green-500/20 group-hover:bg-green-500/40 transition-colors" />
                         <CardHeader className="p-4 sm:p-6">
                             <CardDescription className="text-xs sm:text-sm font-medium uppercase tracking-wider">Live on Screen</CardDescription>
-                            <CardTitle className="text-3xl sm:text-5xl font-black text-green-600 dark:text-green-500">
-                                {stats.approvedCount}
-                            </CardTitle>
+                            {loading ? <Skeleton className="h-10 w-12 mt-1" /> : <CardTitle className="text-3xl sm:text-5xl font-black text-green-600 dark:text-green-500">{stats.approvedCount}</CardTitle>}
                         </CardHeader>
                     </Card>
                 </div>
 
-                {/* Loading State */}
+                {/* Loading State — skeleton photo grid */}
                 {loading && (
-                    <div className="flex items-center justify-center py-20">
-                        <div className="relative">
-                            <RefreshCw className="w-12 h-12 animate-spin text-primary/20" />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="w-4 h-4 bg-primary rounded-full animate-pulse" />
-                            </div>
-                        </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-5">
+                        {Array.from({ length: 10 }).map((_, i) => (
+                            <Skeleton key={i} className="aspect-[3/4] rounded-xl" />
+                        ))}
                     </div>
                 )}
 
@@ -637,7 +642,7 @@ export default function AdminDashboard() {
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-5">
                         {photos.map((photo) => (
                             <div key={photo.id} className="group relative aspect-[3/4] bg-muted/20 rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-border/40">
-                                <img src={photo.url} alt={photo.senderName || 'Guest'} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                                <img src={photo.thumbnailUrl ?? photo.url} alt={photo.senderName || 'Guest'} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" loading="lazy" decoding="async" />
 
                                 {/* Status Badge */}
                                 <div className={`absolute top-2 left-2 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-md z-10 backdrop-blur-md
@@ -679,7 +684,7 @@ export default function AdminDashboard() {
                                 </div>
 
                                 <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black/90 via-black/50 to-transparent p-4 pt-12 text-white transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
-                                    <p className="text-sm font-bold truncate line-clamp-1">{photo.senderName || 'Anonymous'}</p>
+                                    <p className="text-sm font-bold truncate line-clamp-1">{photo.senderName || ''}</p>
                                     <p className="text-[10px] text-gray-300 font-medium tracking-wide mt-0.5 opacity-80">
                                         {new Date(photo.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </p>
@@ -746,6 +751,8 @@ export default function AdminDashboard() {
                                             src={bg.url}
                                             alt={bg.name || 'Background'}
                                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                            loading="lazy"
+                                            decoding="async"
                                         />
                                         {bg.isActive && (
                                             <div className="absolute top-2 left-2 bg-green-500 text-white text-[10px] font-black px-2 py-1 rounded shadow-md tracking-wider">
