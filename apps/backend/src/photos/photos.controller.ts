@@ -10,8 +10,10 @@ import {
     HttpStatus,
     UseInterceptors,
     UploadedFile,
+    BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -33,9 +35,9 @@ export class PhotosController {
         private readonly s3Service: S3Service,
         private readonly configService: ConfigService,
     ) {
-        // Use local storage if AWS credentials are not configured
-        const awsKey = this.configService.get<string>('AWS_ACCESS_KEY_ID', '');
-        this.useLocalStorage = !awsKey || awsKey === 'your-access-key';
+        // Explicit STORAGE_PROVIDER check — 'local' means dev disk, anything else uses S3/R2
+        const provider = this.configService.get<string>('STORAGE_PROVIDER', 'local');
+        this.useLocalStorage = provider === 'local';
     }
 
     private getBaseUrl(): string {
@@ -46,6 +48,7 @@ export class PhotosController {
      * POST /api/upload/presigned
      * Generate a presigned S3 upload URL (or local URL in dev mode)
      */
+    @Throttle({ upload: { limit: 5, ttl: 60000 } })
     @Post('upload/presigned')
     @HttpCode(HttpStatus.OK)
     async getPresignedUrl(@Body() dto: GetPresignedUrlDto) {
@@ -78,6 +81,14 @@ export class PhotosController {
             }),
             limits: {
                 fileSize: 50 * 1024 * 1024, // 50MB max
+            },
+            fileFilter: (_req, file, callback) => {
+                const allowed = /^(image\/(jpeg|png|gif|webp|heic)|video\/(mp4|quicktime|mov))$/;
+                if (allowed.test(file.mimetype)) {
+                    callback(null, true);
+                } else {
+                    callback(new BadRequestException(`File type "${file.mimetype}" is not allowed`), false);
+                }
             },
         }),
     )

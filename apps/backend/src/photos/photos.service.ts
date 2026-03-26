@@ -1,24 +1,34 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePhotoDto, PhotoResponseDto } from '../dto';
 import { PhotoStatus } from '@prisma/client';
 import { SseEmitterService } from '../events/sse-emitter.service';
+import { EventCacheService } from '../events/event-cache.service';
+import { AdminStatsDebouncer } from '../events/admin-stats-debouncer.service';
 
 @Injectable()
 export class PhotosService {
+    private readonly logger = new Logger(PhotosService.name);
+
     constructor(
-        private prisma: PrismaService,
-        private sseEmitter: SseEmitterService,
+        private readonly prisma: PrismaService,
+        private readonly sseEmitter: SseEmitterService,
+        private readonly eventCache: EventCacheService,
+        private readonly statsDebouncer: AdminStatsDebouncer,
     ) { }
 
     async create(dto: CreatePhotoDto): Promise<PhotoResponseDto> {
-        // Get event to check auto-approve setting
-        const event = await this.prisma.event.findUnique({
-            where: { id: dto.eventId },
-        });
-
+        // Check cache first — under 50 concurrent uploads, only the first hits DB
+        let event = this.eventCache.get(dto.eventId);
         if (!event) {
-            throw new NotFoundException(`Event with ID ${dto.eventId} not found`);
+            const dbEvent = await this.prisma.event.findUnique({
+                where: { id: dto.eventId },
+            });
+            if (!dbEvent) {
+                throw new NotFoundException(`Event with ID ${dto.eventId} not found`);
+            }
+            this.eventCache.set(dbEvent);
+            event = dbEvent;
         }
 
         // Parse settings safely
@@ -43,13 +53,13 @@ export class PhotosService {
             },
         });
 
-        // If auto-approved, emit WebSocket event immediately
+        // If auto-approved, emit SSE event immediately
         if (status === PhotoStatus.APPROVED) {
             this.sseEmitter.emitPhotoApproved(event.slug, photo);
         }
 
-        // Always emit admin stat update
-        await this.emitAdminStats(event.slug);
+        // Debounced stats — 50 concurrent uploads coalesce into 1 groupBy query
+        this.statsDebouncer.schedule(event.slug, event.id);
 
         return photo;
     }
@@ -82,16 +92,13 @@ export class PhotosService {
             include: { event: true },
         });
 
-        // If newly approved, emit WebSocket event
         if (status === PhotoStatus.APPROVED) {
             this.sseEmitter.emitPhotoApproved(photo.event.slug, photo);
         } else if (status === PhotoStatus.REJECTED) {
-            // If rejected, emit removal event to hide from live wall
             this.sseEmitter.emitPhotoRemoved(photo.event.slug, photo.id);
         }
 
-        // Emit admin stats update
-        await this.emitAdminStats(photo.event.slug);
+        this.statsDebouncer.schedule(photo.event.slug, photo.eventId);
 
         return photo;
     }
@@ -103,36 +110,17 @@ export class PhotosService {
         });
     }
 
-    private async emitAdminStats(eventSlug: string): Promise<void> {
-        const event = await this.prisma.event.findUnique({
-            where: { slug: eventSlug },
-        });
-
-        if (!event) return;
-
-        const [totalPhotos, pendingCount] = await Promise.all([
-            this.prisma.photo.count({ where: { eventId: event.id } }),
-            this.prisma.photo.count({
-                where: { eventId: event.id, status: PhotoStatus.PENDING },
-            }),
-        ]);
-
-        this.sseEmitter.emitAdminStats(eventSlug, { totalPhotos, pendingCount });
-    }
-
     async getAllBySlug(eventSlug: string): Promise<PhotoResponseDto[]> {
         const event = await this.prisma.event.findUnique({
             where: { slug: eventSlug },
+            include: { photos: { orderBy: { createdAt: 'desc' } } },
         });
 
         if (!event) {
             throw new NotFoundException(`Event with slug ${eventSlug} not found`);
         }
 
-        return this.prisma.photo.findMany({
-            where: { eventId: event.id },
-            orderBy: { createdAt: 'desc' },
-        });
+        return event.photos;
     }
 
     async getStatsBySlug(eventSlug: string) {
@@ -144,15 +132,17 @@ export class PhotosService {
             throw new NotFoundException(`Event with slug ${eventSlug} not found`);
         }
 
-        const [totalPhotos, pendingCount, approvedCount] = await Promise.all([
-            this.prisma.photo.count({ where: { eventId: event.id } }),
-            this.prisma.photo.count({
-                where: { eventId: event.id, status: PhotoStatus.PENDING },
-            }),
-            this.prisma.photo.count({
-                where: { eventId: event.id, status: PhotoStatus.APPROVED },
-            }),
-        ]);
+        const counts = await this.prisma.photo.groupBy({
+            by: ['status'],
+            where: { eventId: event.id },
+            _count: { status: true },
+        });
+
+        const totalPhotos = counts.reduce((sum, g) => sum + g._count.status, 0);
+        const pendingCount =
+            counts.find((g) => g.status === PhotoStatus.PENDING)?._count.status ?? 0;
+        const approvedCount =
+            counts.find((g) => g.status === PhotoStatus.APPROVED)?._count.status ?? 0;
 
         return { totalPhotos, pendingCount, approvedCount };
     }
@@ -171,11 +161,9 @@ export class PhotosService {
             where: { id: photoId },
         });
 
-        // Emit removal event to live wall
         this.sseEmitter.emitPhotoRemoved(photo.event.slug, photo.id);
 
-        // Emit admin stats update
-        await this.emitAdminStats(photo.event.slug);
+        this.statsDebouncer.schedule(photo.event.slug, photo.eventId);
 
         return photo;
     }

@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEventDto } from '../dto';
+import { EventCacheService } from './event-cache.service';
 
 @Injectable()
 export class EventsService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly eventCache: EventCacheService,
+    ) { }
 
     async create(dto: CreateEventDto) {
         return this.prisma.event.create({
@@ -55,6 +59,10 @@ export class EventsService {
     }
 
     async findBySlug(slug: string) {
+        // Check cache first — avoids redundant DB reads under burst load
+        const cached = this.eventCache.get(slug);
+        if (cached) return cached;
+
         const event = await this.prisma.event.findUnique({
             where: { slug },
         });
@@ -63,6 +71,7 @@ export class EventsService {
             throw new NotFoundException(`Event with slug ${slug} not found`);
         }
 
+        this.eventCache.set(event);
         return event;
     }
 
@@ -74,6 +83,7 @@ export class EventsService {
     }
 
     async updateSettings(eventId: string, settings: object) {
+        this.eventCache.invalidate(eventId);
         return this.prisma.event.update({
             where: { id: eventId },
             data: { settings },
@@ -85,6 +95,7 @@ export class EventsService {
         if (!event) {
             throw new NotFoundException(`Event with slug "${slug}" not found`);
         }
+        this.eventCache.invalidate(slug);
         return this.prisma.event.update({
             where: { slug },
             data: { name: data.name },
@@ -96,6 +107,7 @@ export class EventsService {
         if (!event) {
             throw new NotFoundException(`Event with slug "${slug}" not found`);
         }
+        this.eventCache.invalidate(slug);
         await this.prisma.event.delete({ where: { slug } });
         return { success: true };
     }

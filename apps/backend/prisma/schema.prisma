@@ -69,6 +69,11 @@ model Photo {
   // Relations
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
+  // Composite indexes for concurrent query patterns:
+  // - groupBy(['status'], { where: { eventId } })  → admin stats
+  // - findMany({ where: { eventId, status }, orderBy: { createdAt: 'desc' } }) → Live Wall
+  @@index([eventId, status])
+  @@index([eventId, status, createdAt])
   @@map("photos")
 }
 
