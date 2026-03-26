@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import NextImage from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -642,7 +643,13 @@ export default function AdminDashboard() {
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-5">
                         {photos.map((photo) => (
                             <div key={photo.id} className="group relative aspect-[3/4] bg-muted/20 rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-border/40">
-                                <img src={photo.thumbnailUrl ?? photo.url} alt={photo.senderName || 'Guest'} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" loading="lazy" decoding="async" />
+                                <NextImage
+                                    src={photo.thumbnailUrl ?? photo.url}
+                                    alt={photo.senderName || 'Guest'}
+                                    fill
+                                    className="object-cover transition-transform duration-500 group-hover:scale-110"
+                                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 20vw"
+                                />
 
                                 {/* Status Badge */}
                                 <div className={`absolute top-2 left-2 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-md z-10 backdrop-blur-md
@@ -747,12 +754,12 @@ export default function AdminDashboard() {
                                             }`}
                                         onClick={() => handleActivateBg(bg.id)}
                                     >
-                                        <img
+                                        <NextImage
                                             src={bg.url}
                                             alt={bg.name || 'Background'}
-                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                            loading="lazy"
-                                            decoding="async"
+                                            fill
+                                            className="object-cover transition-transform duration-500 group-hover:scale-105"
+                                            sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                                         />
                                         {bg.isActive && (
                                             <div className="absolute top-2 left-2 bg-green-500 text-white text-[10px] font-black px-2 py-1 rounded shadow-md tracking-wider">

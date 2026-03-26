@@ -4,7 +4,7 @@
  */
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Photo } from '@/lib/types';
 import { API_BASE_URL } from '@/lib/api';
 
@@ -22,6 +22,8 @@ interface UseLiveWallReturn {
     connectionError: string | null;
 }
 
+const BACKOFF_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000]; // caps at 30s
+
 export function useLiveWall({
     eventSlug,
     onPhotoApproved,
@@ -31,55 +33,56 @@ export function useLiveWall({
     const [isConnected, setIsConnected] = useState(false);
     const [connectionError, setConnectionError] = useState<string | null>(null);
 
-    // Stable callback refs to avoid re-subscribing
+    // Stable callback refs to avoid re-subscribing on every render
     const onPhotoApprovedRef = useRef(onPhotoApproved);
     const onPhotoRemovedRef = useRef(onPhotoRemoved);
     const onBackgroundChangedRef = useRef(onBackgroundChanged);
+    useEffect(() => { onPhotoApprovedRef.current = onPhotoApproved; }, [onPhotoApproved]);
+    useEffect(() => { onPhotoRemovedRef.current = onPhotoRemoved; }, [onPhotoRemoved]);
+    useEffect(() => { onBackgroundChangedRef.current = onBackgroundChanged; }, [onBackgroundChanged]);
 
-    useEffect(() => {
-        onPhotoApprovedRef.current = onPhotoApproved;
-    }, [onPhotoApproved]);
+    const retryCount = useRef(0);
+    const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const esRef = useRef<EventSource | null>(null);
 
-    useEffect(() => {
-        onPhotoRemovedRef.current = onPhotoRemoved;
-    }, [onPhotoRemoved]);
-
-    useEffect(() => {
-        onBackgroundChangedRef.current = onBackgroundChanged;
-    }, [onBackgroundChanged]);
-
-    useEffect(() => {
+    const connect = useCallback(() => {
         if (!eventSlug) return;
 
-        const es = new EventSource(
-            `${API_BASE_URL}/api/stream/event/${eventSlug}`,
-        );
+        const es = new EventSource(`${API_BASE_URL}/api/stream/event/${eventSlug}`);
+        esRef.current = es;
 
         es.onopen = () => {
-            console.log('[SSE] Connected to event stream:', eventSlug);
             setIsConnected(true);
             setConnectionError(null);
+            retryCount.current = 0;
         };
 
         es.onmessage = (event) => {
             try {
                 const { type, payload } = JSON.parse(event.data);
-
                 switch (type) {
                     case 'photo_approved':
-                        console.log('[SSE] Photo approved:', payload.id);
                         onPhotoApprovedRef.current?.(payload);
                         break;
                     case 'photo_removed':
-                        console.log('[SSE] Photo removed:', payload.id);
                         onPhotoRemovedRef.current?.(payload.id);
                         break;
                     case 'background_changed':
-                        console.log('[SSE] Background changed:', payload.url);
                         onBackgroundChangedRef.current?.(payload.url);
                         break;
+                    case 'shutdown': {
+                        // Server is shutting down — close and delay reconnect
+                        // to avoid thundering herd when all clients reconnect at once
+                        const retryAfter = payload?.retryAfter ?? 5000;
+                        const jitter = Math.random() * retryAfter;
+                        es.close();
+                        esRef.current = null;
+                        setIsConnected(false);
+                        retryTimer.current = setTimeout(connect, jitter);
+                        return;
+                    }
                     case 'heartbeat':
-                        break; // Silently ignore
+                        break;
                 }
             } catch (err) {
                 console.error('[SSE] Failed to parse:', err);
@@ -87,19 +90,26 @@ export function useLiveWall({
         };
 
         es.onerror = () => {
-            console.warn(
-                '[SSE] Connection error — browser will auto-reconnect',
-            );
+            es.close();
+            esRef.current = null;
             setIsConnected(false);
             setConnectionError('Stream disconnected');
-            // EventSource auto-reconnects after ~3 seconds by default
-        };
 
-        return () => {
-            console.log('[SSE] Closing connection');
-            es.close();
+            const delay = BACKOFF_DELAYS[Math.min(retryCount.current, BACKOFF_DELAYS.length - 1)];
+            retryCount.current += 1;
+            console.warn(`[SSE] Disconnected — retrying in ${delay}ms (attempt ${retryCount.current})`);
+            retryTimer.current = setTimeout(connect, delay);
         };
     }, [eventSlug]);
+
+    useEffect(() => {
+        connect();
+        return () => {
+            if (retryTimer.current) clearTimeout(retryTimer.current);
+            esRef.current?.close();
+            esRef.current = null;
+        };
+    }, [connect]);
 
     return { isConnected, connectionError };
 }
@@ -125,14 +135,22 @@ export function useAdminSocket({
         onStatUpdateRef.current = onStatUpdate;
     }, [onStatUpdate]);
 
-    useEffect(() => {
+    const retryCount = useRef(0);
+    const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const esRef = useRef<EventSource | null>(null);
+
+    const connect = useCallback(() => {
         if (!eventSlug) return;
 
         const es = new EventSource(
             `${API_BASE_URL}/api/stream/admin/${eventSlug}`,
         );
+        esRef.current = es;
 
-        es.onopen = () => setIsConnected(true);
+        es.onopen = () => {
+            setIsConnected(true);
+            retryCount.current = 0;
+        };
 
         es.onmessage = (event) => {
             try {
@@ -141,16 +159,42 @@ export function useAdminSocket({
                 if (type === 'admin_stat_update') {
                     onStatUpdateRef.current?.(payload);
                 }
+                if (type === 'shutdown') {
+                    // Graceful shutdown — jitter reconnect to avoid thundering herd
+                    const retryAfter = payload?.retryAfter ?? 5000;
+                    const jitter = Math.random() * retryAfter;
+                    es.close();
+                    esRef.current = null;
+                    setIsConnected(false);
+                    retryTimer.current = setTimeout(connect, jitter);
+                    return;
+                }
                 // 'photo_approved' also arrives here, could trigger list refresh
             } catch (err) {
                 console.error('[SSE Admin] Parse error:', err);
             }
         };
 
-        es.onerror = () => setIsConnected(false);
+        es.onerror = () => {
+            es.close();
+            esRef.current = null;
+            setIsConnected(false);
 
-        return () => es.close();
+            const delay = BACKOFF_DELAYS[Math.min(retryCount.current, BACKOFF_DELAYS.length - 1)];
+            retryCount.current += 1;
+            console.warn(`[SSE Admin] Disconnected — retrying in ${delay}ms (attempt ${retryCount.current})`);
+            retryTimer.current = setTimeout(connect, delay);
+        };
     }, [eventSlug]);
+
+    useEffect(() => {
+        connect();
+        return () => {
+            if (retryTimer.current) clearTimeout(retryTimer.current);
+            esRef.current?.close();
+            esRef.current = null;
+        };
+    }, [connect]);
 
     return { isConnected };
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,11 +20,24 @@ interface GuestUploaderProps {
 
 export default function GuestUploader({ eventSlug, eventId }: GuestUploaderProps) {
   const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [userName, setUserName] = useState('');
   const [message, setMessage] = useState('');
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [success, setSuccess] = useState(false);
+
+  // Create a stable object URL for the preview and revoke it on cleanup
+  // to avoid memory leaks from unbounded blob URL accumulation.
+  useEffect(() => {
+    if (!file?.type.startsWith('image/')) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
 
   const { t } = useLanguage();
 
@@ -161,9 +174,9 @@ export default function GuestUploader({ eventSlug, eventId }: GuestUploaderProps
                 {file ? (
                   <div className="flex flex-col items-center justify-center space-y-3">
                     <div className="relative w-full h-48 rounded-lg overflow-hidden bg-background">
-                      {file.type.startsWith('image/') ? (
+                      {previewUrl ? (
                         <img
-                          src={URL.createObjectURL(file)}
+                          src={previewUrl}
                           alt="Preview"
                           className="w-full h-full object-cover"
                         />
