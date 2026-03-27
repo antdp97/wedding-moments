@@ -5,6 +5,7 @@ import { PhotoStatus } from '@prisma/client';
 import { SseEmitterService } from '../events/sse-emitter.service';
 import { EventCacheService } from '../events/event-cache.service';
 import { AdminStatsDebouncer } from '../events/admin-stats-debouncer.service';
+import { S3Service } from '../s3/s3.service';
 
 @Injectable()
 export class PhotosService {
@@ -15,7 +16,36 @@ export class PhotosService {
         private readonly sseEmitter: SseEmitterService,
         private readonly eventCache: EventCacheService,
         private readonly statsDebouncer: AdminStatsDebouncer,
+        private readonly s3Service: S3Service,
     ) { }
+
+    private normalizePhoto<T extends { url: string; thumbnailUrl?: string | null }>(photo: T): T {
+        return {
+            ...photo,
+            url: this.s3Service.normalizePublicUrl(photo.url) ?? photo.url,
+            ...(photo.thumbnailUrl !== undefined
+                ? {
+                    thumbnailUrl:
+                        this.s3Service.normalizePublicUrl(photo.thumbnailUrl) ?? photo.thumbnailUrl,
+                }
+                : {}),
+        };
+    }
+
+    private normalizePhotos<T extends { url: string; thumbnailUrl?: string | null }>(photos: T[]): T[] {
+        return photos.map((photo) => this.normalizePhoto(photo));
+    }
+
+    private normalizeBackground<T extends { url: string }>(background: T): T {
+        return {
+            ...background,
+            url: this.s3Service.normalizePublicUrl(background.url) ?? background.url,
+        };
+    }
+
+    private normalizeBackgrounds<T extends { url: string }>(backgrounds: T[]): T[] {
+        return backgrounds.map((background) => this.normalizeBackground(background));
+    }
 
     async create(dto: CreatePhotoDto): Promise<PhotoResponseDto> {
         // Check cache first — under 50 concurrent uploads, only the first hits DB
@@ -45,7 +75,7 @@ export class PhotosService {
         const photo = await this.prisma.photo.create({
             data: {
                 eventId: dto.eventId,
-                url: dto.url,
+                url: this.s3Service.normalizePublicUrl(dto.url) ?? dto.url,
                 senderName: dto.senderName,
                 message: dto.message,
                 mimeType: dto.mimeType,
@@ -53,15 +83,17 @@ export class PhotosService {
             },
         });
 
+        const normalizedPhoto = this.normalizePhoto(photo);
+
         // If auto-approved, emit SSE event immediately
         if (status === PhotoStatus.APPROVED) {
-            this.sseEmitter.emitPhotoApproved(event.slug, photo);
+            this.sseEmitter.emitPhotoApproved(event.slug, normalizedPhoto);
         }
 
         // Debounced stats — 50 concurrent uploads coalesce into 1 groupBy query
         this.statsDebouncer.schedule(event.slug, event.id);
 
-        return photo;
+        return normalizedPhoto;
     }
 
     async getApprovedPhotos(eventSlug: string): Promise<PhotoResponseDto[]> {
@@ -73,13 +105,15 @@ export class PhotosService {
             throw new NotFoundException(`Event with slug ${eventSlug} not found`);
         }
 
-        return this.prisma.photo.findMany({
+        const photos = await this.prisma.photo.findMany({
             where: {
                 eventId: event.id,
                 status: PhotoStatus.APPROVED,
             },
             orderBy: { createdAt: 'desc' },
         });
+
+        return this.normalizePhotos(photos);
     }
 
     async updateStatus(
@@ -91,23 +125,26 @@ export class PhotosService {
             data: { status },
             include: { event: true },
         });
+        const normalizedPhoto = this.normalizePhoto(photo);
 
         if (status === PhotoStatus.APPROVED) {
-            this.sseEmitter.emitPhotoApproved(photo.event.slug, photo);
+            this.sseEmitter.emitPhotoApproved(photo.event.slug, normalizedPhoto);
         } else if (status === PhotoStatus.REJECTED) {
             this.sseEmitter.emitPhotoRemoved(photo.event.slug, photo.id);
         }
 
         this.statsDebouncer.schedule(photo.event.slug, photo.eventId);
 
-        return photo;
+        return normalizedPhoto;
     }
 
     async getAllByEvent(eventId: string): Promise<PhotoResponseDto[]> {
-        return this.prisma.photo.findMany({
+        const photos = await this.prisma.photo.findMany({
             where: { eventId },
             orderBy: { createdAt: 'desc' },
         });
+
+        return this.normalizePhotos(photos);
     }
 
     async getAllBySlug(eventSlug: string): Promise<PhotoResponseDto[]> {
@@ -120,7 +157,7 @@ export class PhotosService {
             throw new NotFoundException(`Event with slug ${eventSlug} not found`);
         }
 
-        return event.photos;
+        return this.normalizePhotos(event.photos);
     }
 
     async getStatsBySlug(eventSlug: string) {
@@ -165,7 +202,7 @@ export class PhotosService {
 
         this.statsDebouncer.schedule(photo.event.slug, photo.eventId);
 
-        return photo;
+        return this.normalizePhoto(photo);
     }
 
     // ============================================
@@ -176,19 +213,27 @@ export class PhotosService {
         const event = await this.prisma.event.findUnique({ where: { slug: eventSlug } });
         if (!event) throw new NotFoundException(`Event with slug ${eventSlug} not found`);
 
-        return this.prisma.backgroundImage.create({
-            data: { eventId: event.id, url, name: name || null },
+        const background = await this.prisma.backgroundImage.create({
+            data: {
+                eventId: event.id,
+                url: this.s3Service.normalizePublicUrl(url) ?? url,
+                name: name || null,
+            },
         });
+
+        return this.normalizeBackground(background);
     }
 
     async getBackgrounds(eventSlug: string) {
         const event = await this.prisma.event.findUnique({ where: { slug: eventSlug } });
         if (!event) throw new NotFoundException(`Event with slug ${eventSlug} not found`);
 
-        return this.prisma.backgroundImage.findMany({
+        const backgrounds = await this.prisma.backgroundImage.findMany({
             where: { eventId: event.id },
             orderBy: { createdAt: 'desc' },
         });
+
+        return this.normalizeBackgrounds(backgrounds);
     }
 
     async activateBackground(backgroundId: string) {
@@ -209,11 +254,12 @@ export class PhotosService {
             where: { id: backgroundId },
             data: { isActive: true },
         });
+        const normalizedBackground = this.normalizeBackground(updated);
 
         // Emit to Live Wall
-        this.sseEmitter.emitBackgroundChanged(bg.event.slug, updated.url);
+        this.sseEmitter.emitBackgroundChanged(bg.event.slug, normalizedBackground.url);
 
-        return updated;
+        return normalizedBackground;
     }
 
     async deactivateAllBackgrounds(eventSlug: string) {
@@ -243,17 +289,24 @@ export class PhotosService {
             this.sseEmitter.emitBackgroundChanged(bg.event.slug, null);
         }
 
-        return bg;
+        return this.normalizeBackground(bg);
     }
 
-    async getActiveBackground(eventSlug: string) {
+    async getActiveBackground(eventSlug: string): Promise<{ url: string; name: string | null } | null> {
         try {
             const event = await this.prisma.event.findUnique({ where: { slug: eventSlug } });
             if (!event) throw new NotFoundException(`Event with slug ${eventSlug} not found`);
 
-            return this.prisma.backgroundImage.findFirst({
+            const bg = await this.prisma.backgroundImage.findFirst({
                 where: { eventId: event.id, isActive: true },
             });
+
+            return bg
+                ? {
+                    url: this.s3Service.normalizePublicUrl(bg.url) ?? bg.url,
+                    name: bg.name,
+                }
+                : null;
         } catch (error) {
             if (error instanceof NotFoundException) throw error;
             console.error(`[BackgroundService] getActiveBackground failed for slug "${eventSlug}":`, error);

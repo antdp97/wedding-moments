@@ -6,14 +6,16 @@ import {
     Delete,
     Body,
     Param,
+    Res,
     HttpCode,
     HttpStatus,
     UseInterceptors,
     UploadedFile,
     BadRequestException,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { Throttle, SkipThrottle } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -217,7 +219,14 @@ export class PhotosController {
      * Public — get active background for Live Wall
      */
     @Get('event/:slug/active-background')
-    async getActiveBackground(@Param('slug') slug: string) {
-        return this.photosService.getActiveBackground(slug);
+    async getActiveBackground(
+        @Param('slug') slug: string,
+        @Res({ passthrough: true }) res: Response,
+    ) {
+        const bg = await this.photosService.getActiveBackground(slug);
+        // NestJS sends empty body for null returns (res.send()),
+        // which Axios parses as "" instead of null.
+        // Use res.json() explicitly to send proper JSON null.
+        return res.json(bg);
     }
 }

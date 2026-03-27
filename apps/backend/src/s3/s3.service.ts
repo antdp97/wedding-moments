@@ -8,13 +8,14 @@ import { v4 as uuidv4 } from 'uuid';
 export class S3Service {
     private s3Client: S3Client;
     private bucketName: string;
+    private region: string;
     private publicBaseUrl: string;
 
     constructor(private configService: ConfigService) {
-        const region = this.configService.get<string>('AWS_REGION', 'ap-southeast-1');
+        this.region = this.configService.get<string>('AWS_REGION', 'ap-southeast-1');
 
         this.s3Client = new S3Client({
-            region,
+            region: this.region,
             credentials: {
                 accessKeyId: this.configService.get<string>('AWS_ACCESS_KEY_ID', ''),
                 secretAccessKey: this.configService.get<string>(
@@ -30,9 +31,56 @@ export class S3Service {
         this.publicBaseUrl = (
             this.configService.get<string>(
                 'AWS_PUBLIC_URL',
-                `https://${this.bucketName}.s3.${region}.amazonaws.com`,
-            ) || `https://${this.bucketName}.s3.${region}.amazonaws.com`
+                `https://${this.bucketName}.s3.${this.region}.amazonaws.com`,
+            ) || `https://${this.bucketName}.s3.${this.region}.amazonaws.com`
         ).replace(/\/+$/, '');
+    }
+
+    getPublicBaseUrl(): string {
+        return this.publicBaseUrl;
+    }
+
+    normalizePublicUrl(url: string | null | undefined): string | null | undefined {
+        if (!url) {
+            return url;
+        }
+
+        let parsedUrl: URL;
+
+        try {
+            parsedUrl = new URL(url);
+        } catch {
+            return url;
+        }
+
+        const objectKey = this.extractObjectKey(parsedUrl);
+        if (!objectKey) {
+            return url;
+        }
+
+        return `${this.publicBaseUrl}/${objectKey}`;
+    }
+
+    private extractObjectKey(url: URL): string | null {
+        const normalizedPath = url.pathname.replace(/^\/+/, '');
+        const virtualHostedHosts = new Set([
+            `${this.bucketName}.s3.amazonaws.com`,
+            `${this.bucketName}.s3.${this.region}.amazonaws.com`,
+        ]);
+        const pathStyleHosts = new Set([
+            's3.amazonaws.com',
+            `s3.${this.region}.amazonaws.com`,
+        ]);
+
+        if (virtualHostedHosts.has(url.host)) {
+            return normalizedPath || null;
+        }
+
+        if (pathStyleHosts.has(url.host) && normalizedPath.startsWith(`${this.bucketName}/`)) {
+            return normalizedPath.slice(this.bucketName.length + 1) || null;
+        }
+
+        return null;
     }
 
     async getPresignedUploadUrl(
