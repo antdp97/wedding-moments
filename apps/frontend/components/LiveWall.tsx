@@ -64,14 +64,21 @@ const OrbitSlot = memo(function OrbitSlot({
     photo,
     slot,
     prefersReducedMotion,
+    hasBackdrop,
 }: {
     photo: Photo;
     slot: OrbitSlotConfig;
     prefersReducedMotion: boolean;
+    hasBackdrop: boolean;
 }) {
+    const frameClassName = hasBackdrop
+        ? 'bg-black/18 p-1 rounded-[1.35rem] border border-white/8 shadow-[0_18px_40px_-28px_rgba(0,0,0,0.85)]'
+        : 'bg-black/30 p-1.5 rounded-[1.35rem] border border-white/10 shadow-[0_22px_46px_-26px_rgba(0,0,0,0.9)]';
+
+    console.log("HERE")
     return (
         <motion.div
-            className="absolute z-0 pointer-events-none"
+            className="absolute z-0 hidden pointer-events-none lg:block"
             style={{
                 left: slot.x,
                 top: slot.y,
@@ -86,12 +93,8 @@ const OrbitSlot = memo(function OrbitSlot({
             }
             transition={{ duration: slot.duration, repeat: Infinity, ease: 'easeInOut' }}
         >
-            {/* No backdrop-blur — opaque bg avoids 18× GPU compositing layers */}
-            <div
-                className="bg-black/40 p-1.5 rounded-2xl border border-white/10 shadow-xl"
-                style={{ width: `${Math.round(slot.scale * 300)}px` }}
-            >
-                <div className="relative w-full aspect-4/5 overflow-hidden rounded-xl">
+            <div className={frameClassName} style={{ width: `${Math.round(slot.scale * 300)}px` }}>
+                <div className="relative w-full aspect-4/5 overflow-hidden rounded-[1rem]">
                     <NextImage
                         src={getPhotoSrc(photo)}
                         alt=""
@@ -242,19 +245,29 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
 
     const currentPhoto = photos[currentIndex];
     // ─── 3D Parallax Constellation Slots (9 slots — trimmed from 18 for GPU budget) ───
-    const ORBIT_SLOTS = useMemo(() => [
-        // Foreground (Fast, large, soft blur)
-        { x: '10%', y: '15%', scale: 0.6, blur: 'blur(3px)', duration: 20, driftX: 40, driftY: 30, opacity: 0.5 },
-        { x: '80%', y: '10%', scale: 0.65, blur: 'blur(4px)', duration: 25, driftX: -50, driftY: 40, opacity: 0.4 },
-        { x: '15%', y: '75%', scale: 0.7, blur: 'blur(3px)', duration: 22, driftX: 45, driftY: -35, opacity: 0.45 },
-        { x: '75%', y: '80%', scale: 0.55, blur: 'blur(5px)', duration: 28, driftX: -30, driftY: -45, opacity: 0.4 },
-        // Midground (Medium speed, sharp)
-        { x: '5%', y: '45%', scale: 0.4, blur: 'blur(0px)', duration: 35, driftX: 25, driftY: 20, opacity: 0.8 },
-        { x: '85%', y: '40%', scale: 0.45, blur: 'blur(0px)', duration: 32, driftX: -20, driftY: 25, opacity: 0.75 },
-        { x: '60%', y: '5%', scale: 0.35, blur: 'blur(0px)', duration: 38, driftX: 15, driftY: 30, opacity: 0.85 },
-        { x: '40%', y: '85%', scale: 0.38, blur: 'blur(0px)', duration: 36, driftX: 20, driftY: -20, opacity: 0.8 },
-        { x: '25%', y: '5%', scale: 0.42, blur: 'blur(1px)', duration: 30, driftX: -25, driftY: 15, opacity: 0.7 },
-    ], []);
+    const ORBIT_SLOTS = useMemo(() => {
+        const baseSlots: OrbitSlotConfig[] = [
+            { x: '4%', y: '10%', scale: 0.54, blur: 'blur(1px)', duration: 26, driftX: 22, driftY: 18, opacity: 0.58 },
+            { x: '82%', y: '8%', scale: 0.58, blur: 'blur(1px)', duration: 28, driftX: -24, driftY: 22, opacity: 0.56 },
+            { x: '10%', y: '74%', scale: 0.6, blur: 'blur(1px)', duration: 30, driftX: 20, driftY: -18, opacity: 0.52 },
+            { x: '79%', y: '72%', scale: 0.56, blur: 'blur(1px)', duration: 32, driftX: -22, driftY: -20, opacity: 0.5 },
+            { x: '2%', y: '38%', scale: 0.42, blur: 'blur(0px)', duration: 36, driftX: 18, driftY: 12, opacity: 0.78 },
+            { x: '88%', y: '34%', scale: 0.44, blur: 'blur(0px)', duration: 34, driftX: -16, driftY: 14, opacity: 0.76 },
+            { x: '60%', y: '3%', scale: 0.34, blur: 'blur(0px)', duration: 38, driftX: 12, driftY: 16, opacity: 0.74 },
+            { x: '34%', y: '84%', scale: 0.36, blur: 'blur(0px)', duration: 40, driftX: 14, driftY: -14, opacity: 0.72 },
+            { x: '21%', y: '4%', scale: 0.4, blur: 'blur(0px)', duration: 33, driftX: -16, driftY: 12, opacity: 0.7 },
+        ];
+
+        if (!backgroundUrl) {
+            return baseSlots;
+        }
+
+        return baseSlots.map((slot, index) => ({
+            ...slot,
+            blur: index < 4 ? 'blur(0px)' : slot.blur,
+            opacity: index < 4 ? Math.max(slot.opacity - 0.12, 0.34) : Math.max(slot.opacity - 0.18, 0.28),
+        }));
+    }, [backgroundUrl]);
 
     // Stable orbit pool: only reshuffles when photo count changes, not on every hero cycle
     const floatingPhotos = useMemo(() => {
@@ -274,7 +287,7 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
                     width: 1600,
                     height: 1200,
                     sizes: HERO_IMAGE_SIZES,
-                    quality: 85,
+                    quality: 75,
                 });
             }
         }, 5500);
@@ -449,14 +462,14 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
 
             {/* Dark overlay on custom background for readability */}
             <div className={`absolute inset-0 z-0 ${backgroundUrl ? 'bg-black/60' : 'bg-gradient-to-br from-gray-900 via-black to-slate-900'}`} />
-
             {/* ── 3D Parallax Constellation (Background) ── */}
-            {!backgroundUrl && floatingPhotos.map((photo, i) => (
+            {floatingPhotos.map((photo, i) => (
                 <OrbitSlot
                     key={`parallax-${photo.id}`}
                     photo={photo}
                     slot={ORBIT_SLOTS[i % ORBIT_SLOTS.length]}
                     prefersReducedMotion={prefersReducedMotion}
+                    hasBackdrop={!!backgroundUrl}
                 />
             ))}
 
@@ -479,7 +492,7 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
                         >
                             <div className="absolute -inset-8 rounded-full bg-white/12 blur-[72px] sm:-inset-14 sm:blur-[92px]" />
 
-                            <div className="relative h-[48svh] w-[84vw] max-w-[1400px] overflow-hidden rounded-[1.75rem] border border-white/10 bg-black/10 shadow-[0_30px_70px_-32px_rgba(0,0,0,0.95)] backdrop-blur-sm sm:h-[56vh] sm:w-[76vw] sm:rounded-[2rem] md:h-[60vh] lg:h-[70vh] lg:w-[65vw]">
+                            <div className="relative h-[48svh] w-[84vw] max-w-[1400px] overflow-hidden rounded-[1.75rem] border border-white/18 bg-black/10 shadow-[0_30px_70px_-32px_rgba(0,0,0,0.95)] backdrop-blur-sm sm:h-[56vh] sm:w-[76vw] sm:rounded-[2rem] md:h-[60vh] lg:h-[70vh] lg:w-[65vw]">
                                 <NextImage
                                     src={getPhotoSrc(currentPhoto)}
                                     alt={currentPhoto.senderName ? `Photo from ${currentPhoto.senderName}` : 'Event photo'}
@@ -523,10 +536,7 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
 
             <div className="absolute inset-x-0 bottom-0 z-40 px-4 pb-4 sm:px-6 sm:pb-5 lg:hidden">
                 <div className="pointer-events-auto overflow-x-auto [mask-image:linear-gradient(to_right,transparent,black_4%,black_96%,transparent)] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                    <div
-                        ref={thumbnailRailRef}
-                        className="flex w-max items-center gap-3 pl-20 pr-24 sm:pl-24 sm:pr-28"
-                    >
+                    <div ref={thumbnailRailRef} className="flex w-max items-center gap-3 px-4 sm:px-6">
                         {photos.map((photo, index) => {
                             const isActive = index === currentIndex;
 
@@ -537,8 +547,8 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
                                     data-photo-index={index}
                                     onClick={() => handleSelectPhoto(index)}
                                     className={`shrink-0 rounded-[1.35rem] border p-1.5 transition-all duration-300 ${isActive
-                                            ? 'border-white/22 bg-white/[0.08] shadow-[0_16px_36px_-24px_rgba(255,255,255,0.6)]'
-                                            : 'border-white/8 bg-white/[0.03] hover:border-white/16 hover:bg-white/[0.05]'
+                                        ? 'border-white/22 bg-white/[0.08] shadow-[0_16px_36px_-24px_rgba(255,255,255,0.6)]'
+                                        : 'border-white/8 bg-white/[0.03] hover:border-white/16 hover:bg-white/[0.05]'
                                         }`}
                                     aria-label={`Show photo ${index + 1}`}
                                     aria-pressed={isActive}
@@ -569,7 +579,7 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
                         initial={{ opacity: 0, scale: 0.8, y: -20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.8, y: -20 }}
-                        className="absolute top-6 right-6 sm:top-12 sm:right-12 bg-white text-black px-4 sm:px-6 py-2 sm:py-3 rounded-full shadow-2xl z-30 flex items-center gap-2 border border-white/20"
+                        className="absolute top-20 right-4 sm:top-12 sm:right-12 bg-white text-black px-4 sm:px-6 py-2 sm:py-3 rounded-full shadow-2xl z-30 flex items-center gap-2 border border-white/20"
                     >
                         <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" />
                         <span className="text-xs sm:text-sm font-bold uppercase tracking-widest">{t('new_arrival')}</span>
@@ -601,7 +611,13 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
             </div>
 
             {/* ── Photo Counter (Bottom Left) ── */}
-            <div className="absolute bottom-6 left-6 sm:bottom-12 sm:left-12 z-50">
+            <div className="absolute top-16 left-6 z-50 sm:hidden">
+                <span className="text-white/50 text-[11px] font-medium tracking-[0.18em]">
+                    {String(currentIndex + 1).padStart(2, '0')} / {String(photos.length).padStart(2, '0')}
+                </span>
+            </div>
+
+            <div className="absolute bottom-6 left-6 z-50 hidden sm:block sm:bottom-12 sm:left-12">
                 <span className="text-white/40 text-xs sm:text-sm font-medium tracking-[0.2em]">
                     {String(currentIndex + 1).padStart(2, '0')} / {String(photos.length).padStart(2, '0')}
                 </span>
@@ -611,7 +627,7 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
             {/* Mobile: compact pill button — tap opens modal */}
             <button
                 onClick={() => setQrModalOpen(true)}
-                className="sm:hidden absolute bottom-6 right-6 bg-white/10 backdrop-blur-xl border border-white/15 px-4 py-2.5 rounded-full shadow-xl z-50 flex items-center gap-2 hover:bg-white/15 active:scale-95 transition-all"
+                className="absolute top-6 right-20 z-50 flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2.5 backdrop-blur-xl shadow-xl transition-all hover:bg-white/15 active:scale-95 sm:hidden"
                 aria-label="Show QR code"
             >
                 <QrCode className="w-4 h-4 text-white/80" />

@@ -221,7 +221,11 @@ export async function deleteBackgroundImage(id: string): Promise<BackgroundImage
 
 export async function getActiveBackground(slug: string): Promise<BackgroundImage | null> {
     const response = await api.get(`/api/event/${slug}/active-background`);
-    return response.data;
+    // Guard against NestJS empty-body responses (Axios parses as "")
+    // and malformed data missing the url field
+    const data = response.data;
+    if (!data || typeof data !== 'object' || !data.url) return null;
+    return data;
 }
 
 // ============================================
