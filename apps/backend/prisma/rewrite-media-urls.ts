@@ -40,7 +40,6 @@ function rewriteUrl(
     }
 
     const normalizedPath = parsedUrl.pathname.replace(/^\/+/, '');
-
     if (virtualHostedHosts.has(parsedUrl.host)) {
         return `${publicBaseUrl}/${normalizedPath}`;
     }
