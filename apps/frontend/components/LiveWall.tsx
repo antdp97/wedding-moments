@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import NextImage, { getImageProps } from 'next/image';
 import { QRCodeSVG } from 'qrcode.react';
 import { Photo } from '@/lib/types';
 import { getPhotos, getActiveBackground } from '@/lib/api';
 import { useLiveWall } from '@/hooks/useLiveWall';
+import { SOFT_IMAGE_BLUR_DATA_URL } from '@/lib/image-placeholder';
 import { Sparkles, Maximize, Minimize, QrCode, X } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -17,6 +18,7 @@ interface LiveWallProps {
 const ORBIT_IMAGE_SIZES = '(max-width: 640px) 120px, 200px';
 const HERO_IMAGE_SIZES = '(max-width: 640px) 80vw, 65vw';
 const BACKGROUND_IMAGE_SIZES = '100vw';
+const MOBILE_GALLERY_IMAGE_SIZES = '(max-width: 640px) 34vw, (max-width: 1024px) 18vw, 160px';
 
 // ─── Orbit Slot Types ───
 type OrbitSlotConfig = {
@@ -115,6 +117,7 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
     // Track user motion preference for accessibility
     const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const thumbnailRailRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -140,6 +143,11 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
         } else {
             document.exitFullscreen();
         }
+    }, []);
+
+    const handleSelectPhoto = useCallback((index: number) => {
+        setCurrentIndex(index);
+        setIsNewPhoto(false);
     }, []);
 
     // Handle new photo from SSE — cap at 50 to avoid unbounded DOM growth
@@ -284,6 +292,18 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
             quality: 70,
         });
     }, [backgroundUrl]);
+
+    useEffect(() => {
+        const rail = thumbnailRailRef.current;
+        if (!rail) return;
+
+        const activeThumbnail = rail.querySelector<HTMLElement>(`[data-photo-index="${currentIndex}"]`);
+        activeThumbnail?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+            inline: 'center',
+        });
+    }, [currentIndex]);
 
     const uploadUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/${eventSlug}`;
 
@@ -442,59 +462,104 @@ export default function LiveWall({ eventSlug }: LiveWallProps) {
 
             {/* Center Vignette to draw focus to hero */}
             <div className="absolute inset-0 z-10 bg-[radial-gradient(circle_at_center,transparent_0%,black_100%)] pointer-events-none opacity-80" />
+            <div className="absolute inset-x-0 bottom-0 z-10 h-48 bg-gradient-to-t from-black/75 via-black/25 to-transparent lg:h-44" />
 
             {/* ── Center Hero Photo ── */}
-            <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+            <div className="absolute inset-x-0 top-0 bottom-28 z-20 flex items-center justify-center px-4 pointer-events-none sm:px-8 md:bottom-36 lg:inset-0 lg:px-12">
                 <AnimatePresence mode="wait">
                     {currentPhoto && (
                         <motion.div
                             key={currentPhoto.id}
-                            initial={{ opacity: 0, scale: 0.92, y: 30 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.96, y: -20 }}
-                            transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-                            className="relative flex flex-col items-center"
+                            initial={{ opacity: 0, y: 24 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -16 }}
+                            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                            className="relative flex items-center justify-center"
                             style={{ willChange: 'transform, opacity' }}
                         >
-                            {/* Massive glow */}
-                            <div className="absolute -inset-10 sm:-inset-20 bg-white/20 rounded-full blur-[80px]" />
+                            <div className="absolute -inset-8 rounded-full bg-white/12 blur-[72px] sm:-inset-14 sm:blur-[92px]" />
 
-                            {/* Ultra-premium glassmorphic frame */}
-                            <div className="relative bg-white/5 backdrop-blur-2xl p-4 sm:p-6 rounded-2xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)] border border-white/20">
-                                <div className="relative h-[60vh] w-[80vw] sm:h-[70vh] sm:w-[65vw] max-w-[1400px] overflow-hidden rounded-xl">
-                                    <NextImage
-                                        src={getPhotoSrc(currentPhoto)}
-                                        alt={currentPhoto.senderName ? `Photo from ${currentPhoto.senderName}` : 'Event photo'}
-                                        fill
-                                        priority
-                                        className="object-contain rounded-xl shadow-inner border border-white/10"
-                                        sizes={HERO_IMAGE_SIZES}
-                                        quality={85}
-                                    />
-                                </div>
+                            <div className="relative h-[48svh] w-[84vw] max-w-[1400px] overflow-hidden rounded-[1.75rem] border border-white/10 bg-black/10 shadow-[0_30px_70px_-32px_rgba(0,0,0,0.95)] backdrop-blur-sm sm:h-[56vh] sm:w-[76vw] sm:rounded-[2rem] md:h-[60vh] lg:h-[70vh] lg:w-[65vw]">
+                                <NextImage
+                                    src={getPhotoSrc(currentPhoto)}
+                                    alt={currentPhoto.senderName ? `Photo from ${currentPhoto.senderName}` : 'Event photo'}
+                                    fill
+                                    priority
+                                    placeholder="blur"
+                                    blurDataURL={SOFT_IMAGE_BLUR_DATA_URL}
+                                    className="object-cover object-center"
+                                    sizes={HERO_IMAGE_SIZES}
+                                    quality={85}
+                                />
                             </div>
-
-                            {/* Cinematic typography for message */}
-                            {(currentPhoto.message || currentPhoto.senderName) && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: 15 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.8, duration: 0.8 }}
-                                    className="mt-6 sm:mt-8 flex flex-col items-center gap-1 sm:gap-2 max-w-2xl px-6 text-center"
-                                >
-                                    {currentPhoto.message && (
-                                        <p className="text-white text-xl sm:text-4xl font-light tracking-wide leading-relaxed drop-shadow-2xl">
-                                            &quot;{currentPhoto.message}&quot;
-                                        </p>
-                                    )}
-                                    <p className="text-white/60 text-xs sm:text-sm uppercase tracking-[0.3em] mt-2 font-medium">
-                                        — {currentPhoto.senderName || 'Anonymous'}
-                                    </p>
-                                </motion.div>
-                            )}
                         </motion.div>
                     )}
                 </AnimatePresence>
+            </div>
+
+            <AnimatePresence mode="wait">
+                {currentPhoto && (currentPhoto.message || currentPhoto.senderName) && (
+                    <motion.div
+                        key={`caption-${currentPhoto.id}`}
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        transition={{ delay: 0.15, duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                        className="pointer-events-none absolute inset-x-0 bottom-28 z-30 flex justify-center px-5 sm:bottom-36 sm:px-8 lg:bottom-12"
+                    >
+                        <div className="max-w-3xl text-center">
+                            {currentPhoto.message && (
+                                <p className="text-balance text-lg leading-relaxed font-light tracking-[0.01em] text-white drop-shadow-[0_8px_28px_rgba(0,0,0,0.85)] sm:text-2xl lg:text-4xl">
+                                    &quot;{currentPhoto.message}&quot;
+                                </p>
+                            )}
+                            <p className="mt-2 text-[10px] font-medium uppercase tracking-[0.3em] text-white/65 sm:mt-3 sm:text-xs lg:text-sm">
+                                — {currentPhoto.senderName || 'Anonymous'}
+                            </p>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            <div className="absolute inset-x-0 bottom-0 z-40 px-4 pb-4 sm:px-6 sm:pb-5 lg:hidden">
+                <div className="pointer-events-auto overflow-x-auto [mask-image:linear-gradient(to_right,transparent,black_4%,black_96%,transparent)] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    <div
+                        ref={thumbnailRailRef}
+                        className="flex w-max items-center gap-3 pl-20 pr-24 sm:pl-24 sm:pr-28"
+                    >
+                        {photos.map((photo, index) => {
+                            const isActive = index === currentIndex;
+
+                            return (
+                                <button
+                                    key={`thumb-${photo.id}`}
+                                    type="button"
+                                    data-photo-index={index}
+                                    onClick={() => handleSelectPhoto(index)}
+                                    className={`shrink-0 rounded-[1.35rem] border p-1.5 transition-all duration-300 ${isActive
+                                            ? 'border-white/22 bg-white/[0.08] shadow-[0_16px_36px_-24px_rgba(255,255,255,0.6)]'
+                                            : 'border-white/8 bg-white/[0.03] hover:border-white/16 hover:bg-white/[0.05]'
+                                        }`}
+                                    aria-label={`Show photo ${index + 1}`}
+                                    aria-pressed={isActive}
+                                >
+                                    <div className="relative h-20 w-16 overflow-hidden rounded-[1rem] bg-black/30 sm:h-24 sm:w-20">
+                                        <NextImage
+                                            src={getPhotoSrc(photo)}
+                                            alt={photo.senderName ? `Thumbnail from ${photo.senderName}` : `Thumbnail ${index + 1}`}
+                                            fill
+                                            placeholder="blur"
+                                            blurDataURL={SOFT_IMAGE_BLUR_DATA_URL}
+                                            className="object-cover"
+                                            sizes={MOBILE_GALLERY_IMAGE_SIZES}
+                                            quality={70}
+                                        />
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
             </div>
 
             {/* ── "New Photo" Indicator (No Emoji, Premium) ── */}
