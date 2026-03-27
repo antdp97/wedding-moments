@@ -8,10 +8,13 @@ import { v4 as uuidv4 } from 'uuid';
 export class S3Service {
     private s3Client: S3Client;
     private bucketName: string;
+    private publicBaseUrl: string;
 
     constructor(private configService: ConfigService) {
+        const region = this.configService.get<string>('AWS_REGION', 'ap-southeast-1');
+
         this.s3Client = new S3Client({
-            region: this.configService.get<string>('AWS_REGION', 'ap-southeast-1'),
+            region,
             credentials: {
                 accessKeyId: this.configService.get<string>('AWS_ACCESS_KEY_ID', ''),
                 secretAccessKey: this.configService.get<string>(
@@ -24,6 +27,12 @@ export class S3Service {
             'S3_BUCKET_NAME',
             'liveevent-uploads',
         );
+        this.publicBaseUrl = (
+            this.configService.get<string>(
+                'AWS_PUBLIC_URL',
+                `https://${this.bucketName}.s3.${region}.amazonaws.com`,
+            ) || `https://${this.bucketName}.s3.${region}.amazonaws.com`
+        ).replace(/\/+$/, '');
     }
 
     async getPresignedUploadUrl(
@@ -45,7 +54,7 @@ export class S3Service {
 
         return {
             uploadUrl,
-            key: `https://${this.bucketName}.s3.amazonaws.com/${key}`,
+            key: `${this.publicBaseUrl}/${key}`,
         };
     }
 }
