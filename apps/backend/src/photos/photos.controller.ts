@@ -1,0 +1,232 @@
+import {
+    Controller,
+    Get,
+    Post,
+    Patch,
+    Delete,
+    Body,
+    Param,
+    Res,
+    HttpCode,
+    HttpStatus,
+    UseInterceptors,
+    UploadedFile,
+    BadRequestException,
+} from '@nestjs/common';
+import type { Response } from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import { PhotosService } from './photos.service';
+import { S3Service } from '../s3/s3.service';
+import { ConfigService } from '@nestjs/config';
+import {
+    CreatePhotoDto,
+    GetPresignedUrlDto,
+    UpdatePhotoStatusDto,
+} from '../dto';
+
+@Controller('api')
+export class PhotosController {
+    private useLocalStorage: boolean;
+
+    constructor(
+        private readonly photosService: PhotosService,
+        private readonly s3Service: S3Service,
+        private readonly configService: ConfigService,
+    ) {
+        // Explicit STORAGE_PROVIDER check — 'local' means dev disk, anything else uses S3/R2
+        const provider = this.configService.get<string>('STORAGE_PROVIDER', 'local');
+        this.useLocalStorage = provider === 'local';
+    }
+
+    private getBaseUrl(): string {
+        return this.configService.get<string>('BACKEND_URL', 'http://localhost:4000');
+    }
+
+    /**
+     * POST /api/upload/presigned
+     * Generate a presigned S3 upload URL (or local URL in dev mode)
+     */
+    @Throttle({ upload: { limit: 5, ttl: 60000 } })
+    @Post('upload/presigned')
+    @HttpCode(HttpStatus.OK)
+    async getPresignedUrl(@Body() dto: GetPresignedUrlDto) {
+        if (this.useLocalStorage) {
+            // In dev mode, return a local upload endpoint
+            const fileExtension = dto.fileName.split('.').pop() || 'jpg';
+            const key = `${uuidv4()}.${fileExtension}`;
+            return {
+                uploadUrl: `${this.getBaseUrl()}/api/upload/local`,
+                key: key,
+                useLocalUpload: true,
+            };
+        }
+        return this.s3Service.getPresignedUploadUrl(dto.fileName, dto.fileType);
+    }
+
+    /**
+     * POST /api/upload/local
+     * Local file upload endpoint for development (bypasses S3)
+     */
+    @Post('upload/local')
+    @UseInterceptors(
+        FileInterceptor('file', {
+            storage: diskStorage({
+                destination: './public/uploads',
+                filename: (req, file, callback) => {
+                    const uniqueName = `${uuidv4()}${extname(file.originalname)}`;
+                    callback(null, uniqueName);
+                },
+            }),
+            limits: {
+                fileSize: 50 * 1024 * 1024, // 50MB max
+            },
+            fileFilter: (_req, file, callback) => {
+                const allowed = /^(image\/(jpeg|png|gif|webp|heic)|video\/(mp4|quicktime|mov))$/;
+                if (allowed.test(file.mimetype)) {
+                    callback(null, true);
+                } else {
+                    callback(new BadRequestException(`File type "${file.mimetype}" is not allowed`), false);
+                }
+            },
+        }),
+    )
+    @HttpCode(HttpStatus.OK)
+    async uploadLocal(@UploadedFile() file: Express.Multer.File) {
+        return {
+            url: `${this.getBaseUrl()}/uploads/${file.filename}`,
+            key: file.filename,
+        };
+    }
+
+    /**
+     * POST /api/photo
+     * Save photo metadata after upload completes
+     */
+    @Post('photo')
+    @HttpCode(HttpStatus.CREATED)
+    async createPhoto(@Body() dto: CreatePhotoDto) {
+        return this.photosService.create(dto);
+    }
+
+    /**
+     * GET /api/event/:slug/photos
+     * Get all approved photos for an event
+     */
+    @Get('event/:slug/photos')
+    async getEventPhotos(@Param('slug') slug: string) {
+        return this.photosService.getApprovedPhotos(slug);
+    }
+
+    /**
+     * PATCH /api/admin/photo/:id/status
+     * Update photo status (approve/reject)
+     */
+    @Patch('admin/photo/:id/status')
+    async updatePhotoStatus(
+        @Param('id') id: string,
+        @Body() dto: UpdatePhotoStatusDto,
+    ) {
+        return this.photosService.updateStatus(id, dto.status);
+    }
+
+    /**
+     * GET /api/admin/event/:slug/photos
+     * Get ALL photos for an event (admin view - all statuses)
+     */
+    @Get('admin/event/:slug/photos')
+    async getAdminPhotos(@Param('slug') slug: string) {
+        return this.photosService.getAllBySlug(slug);
+    }
+
+    /**
+     * GET /api/admin/event/:slug/stats
+     * Get photo stats for admin dashboard
+     */
+    @Get('admin/event/:slug/stats')
+    async getEventStats(@Param('slug') slug: string) {
+        return this.photosService.getStatsBySlug(slug);
+    }
+
+    /**
+     * DELETE /api/admin/photo/:id
+     * Permanently delete a photo
+     */
+    @Delete('admin/photo/:id')
+    @HttpCode(HttpStatus.OK)
+    async deletePhoto(@Param('id') id: string) {
+        return this.photosService.delete(id);
+    }
+
+    // ============================================
+    // Background Image Endpoints
+    // ============================================
+
+    /**
+     * POST /api/admin/event/:slug/background
+     * Save a new background image for the event
+     */
+    @Post('admin/event/:slug/background')
+    async createBackground(
+        @Param('slug') slug: string,
+        @Body() body: { url: string; name?: string },
+    ) {
+        return this.photosService.createBackground(slug, body.url, body.name);
+    }
+
+    /**
+     * GET /api/admin/event/:slug/backgrounds
+     * List all background images for an event
+     */
+    @Get('admin/event/:slug/backgrounds')
+    async getBackgrounds(@Param('slug') slug: string) {
+        return this.photosService.getBackgrounds(slug);
+    }
+
+    /**
+     * PATCH /api/admin/background/:id/activate
+     * Set a background as active
+     */
+    @Patch('admin/background/:id/activate')
+    async activateBackground(@Param('id') id: string) {
+        return this.photosService.activateBackground(id);
+    }
+
+    /**
+     * PATCH /api/admin/event/:slug/background/deactivate
+     * Deactivate all backgrounds (revert to default)
+     */
+    @Patch('admin/event/:slug/background/deactivate')
+    async deactivateAllBackgrounds(@Param('slug') slug: string) {
+        return this.photosService.deactivateAllBackgrounds(slug);
+    }
+
+    /**
+     * DELETE /api/admin/background/:id
+     * Delete a background image
+     */
+    @Delete('admin/background/:id')
+    @HttpCode(HttpStatus.OK)
+    async deleteBackground(@Param('id') id: string) {
+        return this.photosService.deleteBackground(id);
+    }
+
+    /**
+     * GET /api/event/:slug/active-background
+     * Public — get active background for Live Wall
+     */
+    @Get('event/:slug/active-background')
+    async getActiveBackground(
+        @Param('slug') slug: string,
+        @Res({ passthrough: true }) res: Response,
+    ) {
+        const bg = await this.photosService.getActiveBackground(slug);
+        // NestJS sends empty body for null returns (res.send()),
+        // which Axios parses as "" instead of null.
+        // Use res.json() explicitly to send proper JSON null.
+        return res.json(bg);
+    }
+}
