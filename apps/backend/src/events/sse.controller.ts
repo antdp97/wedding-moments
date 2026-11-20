@@ -13,7 +13,18 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Observable } from 'rxjs';
 import type { Request } from 'express';
 import { v4 as uuidv4 } from 'uuid';
+import type {
+    AdminSseMessage,
+    LiveWallSseMessage,
+} from '@wedding-moments/shared';
 import { SseConnectionTracker } from './sse-connection-tracker.service';
+
+/**
+ * Shape written to the SSE stream. `type` must be one of the message names in
+ * the shared contract (a typo is a compile error); payloads arrive from
+ * EventEmitter2 as `unknown`, so they are not re-checked here.
+ */
+type Wire<M extends { type: string }> = { type: M['type']; payload?: unknown };
 
 /**
  * SSE controller with explicit connection lifecycle management.
@@ -65,7 +76,7 @@ export class SseController {
             const onPhotoApproved = (photo: unknown): void => {
                 if (!cleaned) {
                     subscriber.next({
-                        data: { type: 'photo_approved', payload: photo },
+                        data: { type: 'photo_approved', payload: photo } satisfies Wire<LiveWallSseMessage>,
                     } as MessageEvent);
                 }
             };
@@ -73,7 +84,7 @@ export class SseController {
             const onPhotoRemoved = (data: unknown): void => {
                 if (!cleaned) {
                     subscriber.next({
-                        data: { type: 'photo_removed', payload: data },
+                        data: { type: 'photo_removed', payload: data } satisfies Wire<LiveWallSseMessage>,
                     } as MessageEvent);
                 }
             };
@@ -81,7 +92,7 @@ export class SseController {
             const onBgChanged = (data: unknown): void => {
                 if (!cleaned) {
                     subscriber.next({
-                        data: { type: 'background_changed', payload: data },
+                        data: { type: 'background_changed', payload: data } satisfies Wire<LiveWallSseMessage>,
                     } as MessageEvent);
                 }
             };
@@ -89,7 +100,7 @@ export class SseController {
             const onShutdown = (data: unknown): void => {
                 if (!cleaned) {
                     subscriber.next({
-                        data: { type: 'shutdown', payload: data },
+                        data: { type: 'shutdown', payload: data } satisfies Wire<LiveWallSseMessage>,
                     } as MessageEvent);
                 }
             };
@@ -104,7 +115,7 @@ export class SseController {
             const heartbeatInterval = setInterval(() => {
                 if (!cleaned) {
                     subscriber.next({
-                        data: { type: 'heartbeat' },
+                        data: { type: 'heartbeat' } satisfies Wire<LiveWallSseMessage>,
                     } as MessageEvent);
                 }
             }, 30_000);
@@ -157,7 +168,7 @@ export class SseController {
             const onStatUpdate = (stats: unknown): void => {
                 if (!cleaned) {
                     subscriber.next({
-                        data: { type: 'admin_stat_update', payload: stats },
+                        data: { type: 'admin_stat_update', payload: stats } satisfies Wire<AdminSseMessage>,
                     } as MessageEvent);
                 }
             };
@@ -165,7 +176,7 @@ export class SseController {
             const onPhotoApproved = (photo: unknown): void => {
                 if (!cleaned) {
                     subscriber.next({
-                        data: { type: 'photo_approved', payload: photo },
+                        data: { type: 'photo_approved', payload: photo } satisfies Wire<AdminSseMessage>,
                     } as MessageEvent);
                 }
             };
@@ -173,7 +184,7 @@ export class SseController {
             const onShutdown = (data: unknown): void => {
                 if (!cleaned) {
                     subscriber.next({
-                        data: { type: 'shutdown', payload: data },
+                        data: { type: 'shutdown', payload: data } satisfies Wire<AdminSseMessage>,
                     } as MessageEvent);
                 }
             };
@@ -185,7 +196,7 @@ export class SseController {
             const heartbeatInterval = setInterval(() => {
                 if (!cleaned) {
                     subscriber.next({
-                        data: { type: 'heartbeat' },
+                        data: { type: 'heartbeat' } satisfies Wire<AdminSseMessage>,
                     } as MessageEvent);
                 }
             }, 30_000);

@@ -1,12 +1,13 @@
 {
-  "name": "frontend",
+  "name": "@wedding-moments/frontend",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.8",
@@ -25,7 +26,8 @@
     "react-dom": "19.2.3",
     "react-dropzone": "^14.4.0",
     "sonner": "^2.0.7",
-    "tailwind-merge": "^3.4.0"
+    "tailwind-merge": "^3.4.0",
+    "@wedding-moments/shared": "*"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

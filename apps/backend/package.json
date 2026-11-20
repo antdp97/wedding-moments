@@ -1,11 +1,12 @@
 {
-  "name": "backend",
+  "name": "@wedding-moments/backend",
   "version": "0.0.1",
   "description": "",
   "author": "",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
+    "postinstall": "prisma generate",
     "build": "npx prisma generate && nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "npx prisma migrate deploy && node dist/main.js",
@@ -19,7 +20,9 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "prisma:seed": "ts-node prisma/seed.ts",
-    "prisma:rewrite-media-urls": "ts-node prisma/rewrite-media-urls.ts"
+    "prisma:rewrite-media-urls": "ts-node prisma/rewrite-media-urls.ts",
+    "dev": "nest start --watch",
+    "typecheck": "tsc --noEmit --incremental false -p tsconfig.json"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
@@ -43,7 +46,8 @@
     "multer": "^2.0.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "@wedding-moments/shared": "*"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

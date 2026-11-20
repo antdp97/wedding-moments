@@ -1,11 +1,18 @@
 import { IsString, IsNotEmpty, IsOptional, IsEnum } from 'class-validator';
 import { PhotoStatus } from '@prisma/client';
+import type {
+    CreateEventRequest,
+    CreatePhotoRequest,
+    GetPresignedUrlRequest,
+    PresignedUrlResponse,
+    UpdatePhotoStatusRequest,
+} from '@wedding-moments/shared';
 
 // ============================================
 // UPLOAD DTOs
 // ============================================
 
-export class GetPresignedUrlDto {
+export class GetPresignedUrlDto implements GetPresignedUrlRequest {
     @IsString()
     @IsNotEmpty()
     fileName: string;
@@ -15,7 +22,7 @@ export class GetPresignedUrlDto {
     fileType: string;
 }
 
-export class PresignedUrlResponseDto {
+export class PresignedUrlResponseDto implements PresignedUrlResponse {
     uploadUrl: string;
     key: string;
 }
@@ -24,7 +31,7 @@ export class PresignedUrlResponseDto {
 // PHOTO DTOs
 // ============================================
 
-export class CreatePhotoDto {
+export class CreatePhotoDto implements CreatePhotoRequest {
     @IsString()
     @IsNotEmpty()
     eventId: string;
@@ -46,7 +53,7 @@ export class CreatePhotoDto {
     mimeType?: string;
 }
 
-export class UpdatePhotoStatusDto {
+export class UpdatePhotoStatusDto implements UpdatePhotoStatusRequest {
     @IsEnum(PhotoStatus)
     @IsNotEmpty()
     status: PhotoStatus;
@@ -67,7 +74,7 @@ export class PhotoResponseDto {
 // EVENT DTOs
 // ============================================
 
-export class CreateEventDto {
+export class CreateEventDto implements CreateEventRequest {
     @IsString()
     @IsNotEmpty()
     name: string;

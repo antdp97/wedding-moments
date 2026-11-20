@@ -5,7 +5,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Photo } from '@/lib/types';
+import { SSE_ROUTES, type AdminSseMessage, type AdminStats, type LiveWallSseMessage, type Photo } from '@/lib/types';
 import { API_BASE_URL } from '@/lib/api';
 
 // ─── Live Wall Hook (Slideshow) ───
@@ -48,7 +48,7 @@ export function useLiveWall({
     const connect = useCallback(() => {
         if (!eventSlug) return;
 
-        const es = new EventSource(`${API_BASE_URL}/api/stream/event/${eventSlug}`);
+        const es = new EventSource(`${API_BASE_URL}${SSE_ROUTES.liveWall(eventSlug)}`);
         esRef.current = es;
 
         es.onopen = () => {
@@ -59,21 +59,21 @@ export function useLiveWall({
 
         es.onmessage = (event) => {
             try {
-                const { type, payload } = JSON.parse(event.data);
-                switch (type) {
+                const msg = JSON.parse(event.data) as LiveWallSseMessage;
+                switch (msg.type) {
                     case 'photo_approved':
-                        onPhotoApprovedRef.current?.(payload);
+                        onPhotoApprovedRef.current?.(msg.payload);
                         break;
                     case 'photo_removed':
-                        onPhotoRemovedRef.current?.(payload.id);
+                        onPhotoRemovedRef.current?.(msg.payload.id);
                         break;
                     case 'background_changed':
-                        onBackgroundChangedRef.current?.(payload.url);
+                        onBackgroundChangedRef.current?.(msg.payload.url);
                         break;
                     case 'shutdown': {
                         // Server is shutting down — close and delay reconnect
                         // to avoid thundering herd when all clients reconnect at once
-                        const retryAfter = payload?.retryAfter ?? 5000;
+                        const retryAfter = msg.payload?.retryAfter ?? 5000;
                         const jitter = Math.random() * retryAfter;
                         es.close();
                         esRef.current = null;
@@ -118,10 +118,7 @@ export function useLiveWall({
 
 interface UseAdminSocketOptions {
     eventSlug: string;
-    onStatUpdate?: (stats: {
-        totalPhotos: number;
-        pendingCount: number;
-    }) => void;
+    onStatUpdate?: (stats: AdminStats) => void;
 }
 
 export function useAdminSocket({
@@ -143,7 +140,7 @@ export function useAdminSocket({
         if (!eventSlug) return;
 
         const es = new EventSource(
-            `${API_BASE_URL}/api/stream/admin/${eventSlug}`,
+            `${API_BASE_URL}${SSE_ROUTES.admin(eventSlug)}`,
         );
         esRef.current = es;
 
@@ -154,14 +151,14 @@ export function useAdminSocket({
 
         es.onmessage = (event) => {
             try {
-                const { type, payload } = JSON.parse(event.data);
+                const msg = JSON.parse(event.data) as AdminSseMessage;
 
-                if (type === 'admin_stat_update') {
-                    onStatUpdateRef.current?.(payload);
+                if (msg.type === 'admin_stat_update') {
+                    onStatUpdateRef.current?.(msg.payload);
                 }
-                if (type === 'shutdown') {
+                if (msg.type === 'shutdown') {
                     // Graceful shutdown — jitter reconnect to avoid thundering herd
-                    const retryAfter = payload?.retryAfter ?? 5000;
+                    const retryAfter = msg.payload?.retryAfter ?? 5000;
                     const jitter = Math.random() * retryAfter;
                     es.close();
                     esRef.current = null;

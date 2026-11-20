@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import type { AdminStats } from '@wedding-moments/shared';
 
 @Injectable()
 export class SseEmitterService {
@@ -14,7 +15,7 @@ export class SseEmitterService {
 
     emitAdminStats(
         eventSlug: string,
-        stats: { totalPhotos: number; pendingCount: number },
+        stats: AdminStats,
     ): void {
         this.eventEmitter.emit(`admin.stats.${eventSlug}`, stats);
         this.logger.log(`Emitted admin.stats.${eventSlug}`);
