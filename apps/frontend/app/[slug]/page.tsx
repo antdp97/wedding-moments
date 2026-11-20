@@ -1,0 +1,126 @@
+"use client";
+
+import { useEffect, useState, use } from "react";
+import GuestUploader from "@/components/GuestUploader";
+import { getEventBySlug } from "@/lib/api";
+import { MonitorPlay } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import Link from "next/link";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { LanguageToggle } from "@/components/LanguageToggle";
+
+export default function EventPage({ params }: { params: Promise<{ slug: string }> }) {
+    const { slug } = use(params);
+    const [eventId, setEventId] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const { t } = useLanguage();
+
+    useEffect(() => {
+        async function fetchEvent() {
+            try {
+                const eventData = await getEventBySlug(slug);
+                setEventId(eventData.id);
+            } catch (err) {
+                console.error("Failed to load event:", err);
+                setError("Event not found or inactive.");
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchEvent();
+    }, [slug]);
+
+    if (loading) {
+        return (
+            <main className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-24 sm:p-4 relative overflow-hidden">
+                {/* Top bar skeleton */}
+                <div className="fixed left-0 top-0 w-full z-50 flex items-center justify-between border-b border-border bg-background/80 backdrop-blur-2xl px-4 sm:px-8 py-4">
+                    <Skeleton className="h-5 w-32" />
+                    <div className="flex items-center gap-3">
+                        <Skeleton className="h-8 w-8 rounded-full" />
+                        <Skeleton className="h-9 w-24 rounded-full" />
+                    </div>
+                </div>
+                <div className="z-10 w-full max-w-md flex flex-col items-center gap-8 mt-8 sm:mt-0">
+                    {/* Title skeleton */}
+                    <div className="text-center space-y-3 w-full">
+                        <Skeleton className="h-10 w-3/4 mx-auto" />
+                        <Skeleton className="h-10 w-1/2 mx-auto" />
+                        <Skeleton className="h-4 w-2/3 mx-auto mt-2" />
+                    </div>
+                    {/* Card skeleton */}
+                    <div className="w-full rounded-2xl border border-border/50 bg-card/95 p-6 space-y-5 shadow-lg">
+                        <Skeleton className="h-6 w-40 mx-auto" />
+                        {/* Dropzone */}
+                        <Skeleton className="h-44 w-full rounded-xl" />
+                        {/* Name field */}
+                        <div className="space-y-2">
+                            <Skeleton className="h-3 w-16" />
+                            <Skeleton className="h-10 w-full rounded-md" />
+                        </div>
+                        {/* Message field */}
+                        <div className="space-y-2">
+                            <Skeleton className="h-3 w-20" />
+                            <Skeleton className="h-10 w-full rounded-md" />
+                        </div>
+                        {/* Button */}
+                        <Skeleton className="h-12 w-full rounded-md" />
+                    </div>
+                </div>
+            </main>
+        );
+    }
+
+    if (error || !eventId) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4 text-center">
+                <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mb-6">
+                    <svg className="w-8 h-8 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <h1 className="text-3xl font-black mb-3">Oops!</h1>
+                <p className="text-muted-foreground max-w-sm mx-auto">{error}</p>
+            </div>
+        );
+    }
+
+    return (
+        <main className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-24 sm:p-4 relative overflow-hidden">
+            {/* Top Brand Bar */}
+            <div className="fixed left-0 top-0 w-full z-50 flex items-center justify-between border-b border-border bg-background/80 backdrop-blur-2xl px-4 sm:px-8 py-4">
+                <p className="font-bold text-primary text-base sm:text-lg tracking-[0.2em] uppercase">
+                    {t('app_title')}
+                </p>
+
+                <div className="flex items-center gap-2 sm:gap-4">
+                    <LanguageToggle />
+                    <Link
+                        href={`/live/${slug}`}
+                        className="flex items-center gap-2 text-xs sm:text-sm font-semibold tracking-wider uppercase text-primary/80 hover:text-primary bg-primary/5 hover:bg-primary/10 px-4 py-2 sm:px-5 sm:py-2.5 rounded-full backdrop-blur-md transition-all duration-300 border border-primary/10 hover:border-primary/20 active:scale-95"
+                    >
+                        <MonitorPlay className="w-4 h-4 sm:w-4 sm:h-4" />
+                        <span className="hidden sm:inline">{t('view_live_wall')}</span>
+                        <span className="sm:hidden">Live</span>
+                    </Link>
+                </div>
+            </div>
+
+            <div className="z-10 w-full max-w-md flex flex-col items-center gap-8 sm:gap-10 mt-8 sm:mt-0">
+                <div className="text-center space-y-4 sm:space-y-5">
+                    <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-primary tracking-wide">
+                        {t('guest_title1')}
+                        <br />
+                        {t('guest_title2')}
+                    </h1>
+                    <p className="text-sm sm:text-base leading-relaxed text-muted-foreground font-light max-w-xs mx-auto tracking-tight">
+                        {t('upload_photo_desc')}
+                    </p>
+                </div>
+
+                <GuestUploader eventId={eventId} eventSlug={slug} />
+            </div>
+        </main>
+    );
+}

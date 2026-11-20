@@ -1,0 +1,269 @@
+'use client';
+
+import { useState, useCallback, useEffect } from 'react';
+import { useDropzone } from 'react-dropzone';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Upload, X, CheckCircle, Image as ImageIcon, Sparkles, MonitorPlay, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { toast } from 'sonner';
+import { getPresignedUrl, uploadFile, savePhotoMetadata } from '@/lib/api';
+import { useLanguage } from '@/contexts/LanguageContext';
+
+interface GuestUploaderProps {
+  eventSlug?: string;
+  eventId?: string;
+}
+
+export default function GuestUploader({ eventSlug, eventId }: GuestUploaderProps) {
+  const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [userName, setUserName] = useState('');
+  const [message, setMessage] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [success, setSuccess] = useState(false);
+
+  // Create a stable object URL for the preview and revoke it on cleanup
+  // to avoid memory leaks from unbounded blob URL accumulation.
+  useEffect(() => {
+    if (!file?.type.startsWith('image/')) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  const { t } = useLanguage();
+
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    if (acceptedFiles?.length > 0) {
+      setFile(acceptedFiles[0]);
+      setSuccess(false);
+      setProgress(0);
+    }
+  }, []);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'image/*': [],
+      'video/*': [],
+    },
+    maxFiles: 1,
+  });
+
+  const handleUpload = async () => {
+    if (!file) return;
+
+    // Require eventId for real uploads
+    if (!eventId) {
+      toast.error('Event not configured. Please try again later.');
+      return;
+    }
+
+    setUploading(true);
+    setProgress(10);
+
+    try {
+      // Step A: Get presigned URL from backend
+      const presignedResponse = await getPresignedUrl(file.name, file.type);
+      setProgress(30);
+
+      // Step B: Upload file (handles both S3 and local modes)
+      const photoUrl = await uploadFile(presignedResponse, file);
+      setProgress(80);
+
+      // Step C: Notify backend with photo metadata
+      await savePhotoMetadata({
+        eventId,
+        url: photoUrl,
+        senderName: userName || undefined,
+        message: message || undefined,
+        mimeType: file.type,
+      });
+      setProgress(100);
+
+      setSuccess(true);
+      toast.success(t('upload_success'));
+
+      // Do NOT auto-reset. Let the user choose what to do next.
+
+    } catch (error) {
+      console.error('Upload failed:', error);
+      toast.error(t('upload_error'));
+      setUploading(false);
+      setProgress(0);
+    }
+  };
+
+  const removeFile = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setFile(null);
+  };
+
+  const uploadAnother = () => {
+    setFile(null);
+    setSuccess(false);
+    setUploading(false);
+    setProgress(0);
+    setMessage('');
+  };
+
+  return (
+    <div className="w-full max-w-md mx-auto p-4">
+      <Card className="border-2 border-border/50 bg-card/95 backdrop-blur shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-center text-primary text-xl font-bold">
+            {t('upload_photo_title')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+
+          {success ? (
+            <div className="flex flex-col items-center justify-center py-8 space-y-8 animate-in fade-in zoom-in duration-500">
+              <div className="relative">
+                <div className="absolute inset-0 bg-green-500/20 rounded-full blur-xl" />
+                <div className="w-20 h-20 bg-green-500/10 border border-green-500/30 rounded-full flex items-center justify-center relative">
+                  <CheckCircle className="w-10 h-10 text-green-600" />
+                </div>
+              </div>
+
+              <div className="text-center space-y-2">
+                <h2 className="text-2xl font-bold text-foreground tracking-tight">Sent to screen!</h2>
+                <p className="text-muted-foreground text-sm">Your moment is now live.</p>
+              </div>
+
+              <div className="flex flex-col w-full gap-3 mt-4">
+                <Button
+                  variant="outline"
+                  className="h-12 w-full rounded-xl transition-all font-semibold tracking-wide"
+                  onClick={uploadAnother}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  {t('upload_another')}
+                </Button>
+                <Link href={`/live/${eventSlug}`} className="w-full">
+                  <Button
+                    className="h-12 w-full rounded-xl transition-all font-semibold tracking-wide shadow-md hover:shadow-lg"
+                  >
+                    <MonitorPlay className="w-4 h-4 mr-2" />
+                    {t('view_live_wall')}
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6 relative">
+              {/* Dropzone */}
+              <div
+                {...getRootProps()}
+                className={`
+                relative border-2 border-dashed rounded-xl p-8 transition-all duration-300 cursor-pointer text-center
+                ${isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/30 hover:border-primary/50 hover:bg-muted'}
+                ${file ? 'border-success/50 bg-success/5' : ''}
+              `}
+              >
+                <input {...getInputProps()} />
+
+                {file ? (
+                  <div className="flex flex-col items-center justify-center space-y-3">
+                    <div className="relative w-full h-48 rounded-lg overflow-hidden bg-background">
+                      {previewUrl ? (
+                        <img
+                          src={previewUrl}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-muted-foreground">
+                          <ImageIcon className="w-12 h-12" />
+                        </div>
+                      )}
+                      <button
+                        onClick={removeFile}
+                        className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full hover:bg-destructive transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <p className="text-sm font-medium truncate max-w-full px-2">{file.name}</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center space-y-3 py-6">
+                    <div className="p-4 bg-primary/10 rounded-full text-primary">
+                      <Upload className="w-8 h-8" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-medium text-foreground">{t('drag_text')}</p>
+                      <p className="text-xs text-muted-foreground">{t('drag_drop_text')}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Form Fields */}
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label htmlFor="name" className="text-xs text-muted-foreground uppercase tracking-wider">{t('your_name')}</Label>
+                  <Input
+                    id="name"
+                    placeholder={t('name_placeholder')}
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    className="bg-background/50 border-input/50 focus:border-primary placeholder-opacity-50"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="message" className="text-xs text-muted-foreground uppercase tracking-wider">{t('your_message')}</Label>
+                  <Input
+                    id="message"
+                    placeholder={t('message_placeholder')}
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    className="bg-background/50 border-input/50 focus:border-primary placeholder-opacity-50"
+                  />
+                </div>
+              </div>
+
+              {/* Progress */}
+              {uploading && (
+                <div className="space-y-1 animate-in fade-in slide-in-from-bottom-2">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{t('uploading')}</span>
+                    <span>{progress}%</span>
+                  </div>
+                  <Progress value={progress} className="h-2" />
+                </div>
+              )}
+
+              {/* Action */}
+              <Button
+                className="w-full text-lg font-medium h-12 shadow-lg hover:shadow-xl transition-all relative overflow-hidden group"
+                onClick={handleUpload}
+                disabled={!file || uploading || success}
+              >
+                {uploading ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    {t('uploading')}
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5" />
+                    {t('upload_cta')}
+                  </span>
+                )}
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
