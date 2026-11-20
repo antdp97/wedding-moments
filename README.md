@@ -6,6 +6,7 @@ Real-time event photo sharing. Guests scan a QR code and upload photos, and the 
 
 > Editable diagram: [`docs/architecture.excalidraw`](docs/architecture.excalidraw) (open it at excalidraw.com).
 > Full design doc: [`docs/system-design.md`](docs/system-design.md)
+> Simplified one-page overview: [`docs/architecture-overview.png`](docs/architecture-overview.png) ([SVG](docs/architecture-overview.svg) · [editable](docs/architecture-overview.excalidraw))
 
 ## Repository layout
 
