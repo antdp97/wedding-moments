@@ -2,7 +2,7 @@
 
 Real-time event photo sharing. Guests scan a QR code and upload photos, and the photos appear live on a projector "Live Wall".
 
-![Architecture](docs/architecture.png)
+![Architecture](docs/architecture-overview.png)
 
 > Editable diagram: [`docs/architecture.excalidraw`](docs/architecture.excalidraw) (open it at excalidraw.com).
 > Full design doc: [`docs/system-design.md`](docs/system-design.md)
